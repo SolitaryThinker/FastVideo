@@ -121,6 +121,7 @@ class LlamaAttention(nn.Module):
         # MistralConfig has an optional head_dim introduced by Mistral-Nemo
         self.head_dim = getattr(config, "head_dim",
                                 self.hidden_size // self.total_num_heads)
+        print('head_dim', self.head_dim)
         # Phi models introduced a partial_rotary_factor parameter in the config
         partial_rotary_factor = getattr(config, "partial_rotary_factor", 1)
         self.rotary_dim = int(partial_rotary_factor * self.head_dim)
@@ -130,15 +131,24 @@ class LlamaAttention(nn.Module):
         self.rope_theta = rope_theta
         self.max_position_embeddings = max_position_embeddings
 
-        self.qkv_proj = QKVParallelLinear(
-            hidden_size=hidden_size,
-            head_size=self.head_dim,
-            total_num_heads=self.total_num_heads,
-            total_num_kv_heads=self.total_num_kv_heads,
-            bias=bias,
-            quant_config=quant_config,
-            prefix=f"{prefix}.qkv_proj",
+        self.q_proj = nn.Linear(
+            hidden_size, self.total_num_heads * self.head_dim, bias=False
         )
+        self.k_proj = nn.Linear(
+            hidden_size, self.total_num_kv_heads * self.head_dim, bias=False
+        )
+        self.v_proj = nn.Linear(
+            hidden_size, self.total_num_kv_heads * self.head_dim, bias=False
+        )
+        # self.qkv_proj = QKVParallelLinear(
+        #     hidden_size=hidden_size,
+        #     head_size=self.head_dim,
+        #     total_num_heads=self.total_num_heads,
+        #     total_num_kv_heads=self.total_num_kv_heads,
+        #     bias=bias,
+        #     quant_config=quant_config,
+        #     prefix=f"{prefix}.qkv_proj",
+        # )
 
         self.o_proj = RowParallelLinear(
             input_size=self.total_num_heads * self.head_dim,
@@ -172,8 +182,18 @@ class LlamaAttention(nn.Module):
         positions: torch.Tensor,
         hidden_states: torch.Tensor,
     ) -> torch.Tensor:
-        qkv, _ = self.qkv_proj(hidden_states)
-        q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
+        print('pre-projection hidden_states', hidden_states.shape)
+        print('pre-projection hidden_states', hidden_states[:, :5, :].float().sum())
+
+        # qkv, _ = self.qkv_proj(hidden_states)
+        # q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
+        q = self.q_proj(hidden_states)
+        k = self.k_proj(hidden_states)
+        v = self.v_proj(hidden_states)
+        print('q.shape', q.shape)
+        print('pre-rotary q', q[:, :5, :].float().sum())
+        print('pre-rotary k', k[:, :5, :].float().sum())
+        print('pre-rotary v', v[:, :5, :].float().sum())
         q, k = self.rotary_emb(positions, q, k)
         # attn_output = self.attn(q, k, v)
         # use flash_attn_func
@@ -186,10 +206,16 @@ class LlamaAttention(nn.Module):
         k = k.reshape(batch_size, seq_len, self.num_kv_heads, self.head_dim)
         v = v.reshape(batch_size, seq_len, self.num_kv_heads, self.head_dim)
         # import pdb; pdb.set_trace()
+        # apply causal mask
+        print('pre-attnetion q', q[:, :5, :, :].float().sum())
+        print('pre-attnetion k', k[:, :5, :, :].float().sum())
+        print('pre-attnetion v', v[:, :5, :, :].float().sum())
         attn_output = flash_attn_func(q, k, v, softmax_scale=self.scaling, causal=True)
         attn_output = attn_output.reshape(batch_size, seq_len, self.num_heads * self.head_dim)
-
+        print('post-attnetion attn_output', attn_output.float().sum())
         output, _ = self.o_proj(attn_output)
+        print('post-projection output', output.float().sum())
+        print('output shape', output.shape)
         return output
 
 
@@ -359,9 +385,9 @@ class LlamaModel(nn.Module):
                                                    torch.Tensor]]) -> Set[str]:
         stacked_params_mapping = [
             # (param_name, shard_name, shard_id)
-            (".qkv_proj", ".q_proj", "q"),
-            (".qkv_proj", ".k_proj", "k"),
-            (".qkv_proj", ".v_proj", "v"),
+            # (".qkv_proj", ".q_proj", "q"),
+            # (".qkv_proj", ".k_proj", "k"),
+            # (".qkv_proj", ".v_proj", "v"),
             (".gate_up_proj", ".gate_proj", 0),
             (".gate_up_proj", ".up_proj", 1),
         ]

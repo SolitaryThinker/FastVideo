@@ -82,6 +82,7 @@ def test_llama_encoder():
         logger=logger,
         device=device
     )
+    # model1.to(torch.bfloat16)
 
     from fastvideo.v1.models.loader.component_loader import TextEncoderLoader
     from fastvideo.v1.models.loader.component_loader import TextEncoderLoader
@@ -92,6 +93,7 @@ def test_llama_encoder():
     
     # Convert to float16 and move to device
     model2 = model2.to(torch.float16)
+    # model2 = model2.to(torch.bfloat16)
     model2 = model2.to(device)
     model2.eval()
     
@@ -109,28 +111,50 @@ def test_llama_encoder():
     # check if embed_tokens are the same
     print(model1.embed_tokens.weight.shape, model2.embed_tokens.weight.shape)
     assert torch.allclose(model1.embed_tokens.weight, model2.embed_tokens.weight)
-    weights = ["layers.{}.input_layernorm.weight", "layers.{}.post_attention_layernorm.weight"]
+    max_diff = torch.max(torch.abs(model1.embed_tokens.weight - model2.embed_tokens.weight))
+    mean_diff = torch.mean(torch.abs(model1.embed_tokens.weight - model2.embed_tokens.weight))
+    print("max_diff", max_diff)
+    print("mean_diff", mean_diff)
+    # weights = ["layers.{}.input_layernorm.weight", "layers.{}.post_attention_layernorm.weight"]
     # for (name1, param1), (name2, param2) in zip(
     #     sorted(params1.items()), sorted(params2.items())
     # ):
+    #     print(name1, name2)
+    qkv_weights = ["layers.{}.self_attn.q_proj.weight", "layers.{}.self_attn.k_proj.weight", "layers.{}.self_attn.v_proj.weight"]
     for l in range(hf_config.num_hidden_layers):
-        for w in weights:
+        for w in qkv_weights:
             name1 = w.format(l)
-            name2 = w.format(l)
             p1 = params1[name1]
-            p2 = params2[name2]
-            print(type(p2))
-            if "gate_up" in name2:
-                print("skipping gate_up")
-                continue
-            try:
-                logger.info(f"Parameter: {name1} vs {name2}")
-                max_diff = torch.max(torch.abs(p1 - p2)).item()
-                mean_diff = torch.mean(torch.abs(p1 - p2)).item()
-                weight_diffs.append((name1, name2, max_diff, mean_diff))
-                logger.info(f"  Max diff: {max_diff}, Mean diff: {mean_diff}")
-            except Exception as e:
-                logger.info(f"Error comparing {name1} and {name2}: {e}")
+            p2 = params2[name1]
+            print(name1, p1.shape, p2.shape)
+            assert torch.allclose(p1, p2)
+            max_diff = torch.max(torch.abs(p1 - p2))
+            mean_diff = torch.mean(torch.abs(p1 - p2))
+            print("max_diff", max_diff)
+            print("mean_diff", mean_diff)
+    # return
+    # fused_weights = ["layers.{}.self_attn.qkv_proj.weight"]
+
+    # for l in range(hf_config.num_hidden_layers):
+
+    #     # concat qkv_weights
+    #     params_qkv = []
+    #     for w in qkv_weights:
+    #         name1 = w.format(l)
+    #         p1 = params1[name1]
+    #         params_qkv.append(p1)
+    #     print(name1)
+    #     fused_name = fused_weights[0].format(l)
+    #     print(fused_name)
+    #     p_qkv = torch.cat(params_qkv, dim=0)
+    #     print(p_qkv.shape)
+    #     p_qkv_fused = params2[fused_name]
+    #     print(p_qkv_fused.shape)
+    #     assert torch.allclose(p_qkv, p_qkv_fused)
+    #     max_diff = torch.max(torch.abs(p_qkv - p_qkv_fused))
+    #     mean_diff = torch.mean(torch.abs(p_qkv - p_qkv_fused))
+    #     print("max_diff", max_diff)
+    #     print("mean_diff", mean_diff)
     
     tokenizer_path = "data/hunyuanvideo-community/HunyuanVideo/tokenizer"
     # Load tokenizer
@@ -149,6 +173,7 @@ def test_llama_encoder():
     
     logger.info("Testing LLaMA encoder with sample prompts")
     
+    # torch.set_printoptions(profile="full")
     with torch.no_grad():
         for prompt in prompts:
             logger.info(f"Testing prompt: '{prompt}'")
@@ -166,6 +191,9 @@ def test_llama_encoder():
             # filter out padding input_ids  
             # tokens.input_ids = tokens.input_ids[tokens.attention_mask==1]
             # tokens.attention_mask = tokens.attention_mask[tokens.attention_mask==1]
+            print('tokens.input_ids', tokens.input_ids.shape)
+            print('tokens.attention_mask', tokens.attention_mask.shape)
+            print('tokens.attention_mask', tokens.attention_mask)
             outputs1 = model1(
                 input_ids=tokens.input_ids,
                 attention_mask=tokens.attention_mask,
@@ -182,6 +210,8 @@ def test_llama_encoder():
             )
             
             # Compare last hidden states
+            print('outputs1.last_hidden_state', outputs1.last_hidden_state.shape)
+            print('outputs2.last_hidden_state', outputs2.last_hidden_state.shape)
             last_hidden_state1 = outputs1.last_hidden_state[tokens.attention_mask==1]
             last_hidden_state2 = outputs2.last_hidden_state[tokens.attention_mask==1]
             

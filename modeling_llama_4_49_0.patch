@@ -1,0 +1,43 @@
+diff --git a/src/transformers/models/llama/modeling_llama.py b/home/ubuntu/miniconda3/envs/fv/lib/python3.10/site-packages/transformers/models/llama/modeling_llama.py
+index 0d65e1417..9eeebfb91 100644
+--- a/src/transformers/models/llama/modeling_llama.py
++++ b/home/ubuntu/miniconda3/envs/fv/lib/python3.10/site-packages/transformers/models/llama/modeling_llama.py
+@@ -267,9 +267,15 @@ class LlamaAttention(nn.Module):
+         input_shape = hidden_states.shape[:-1]
+         hidden_shape = (*input_shape, -1, self.head_dim)
+ 
++        print('pre-projection hidden_states', hidden_states.shape)
++        print('pre-projection hidden_states', hidden_states[:, :5, :].float().sum())
++
+         query_states = self.q_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+         key_states = self.k_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+         value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
++        print('pre-rotary query_states', query_states[:, :, :5, :].float().sum())
++        print('pre-rotary key_states', key_states[:, :, :5, :].float().sum())
++        print('pre-rotary value_states', value_states[:, :, :5, :].float().sum())
+ 
+         cos, sin = position_embeddings
+         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+@@ -289,6 +295,13 @@ class LlamaAttention(nn.Module):
+             else:
+                 attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+ 
++        print('pre-attention query_states', query_states.shape)
++        print('pre-attention key_states', key_states.shape)
++        print('pre-attention value_states', value_states.shape)
++        print('pre-attention attention_mask', attention_mask.shape)
++        print('pre-attention query_states', query_states[:, :, :5, :].float().sum())
++        print('pre-attention key_states', key_states[:, :, :5, :].float().sum())
++        print('pre-attention value_states', value_states[:, :, :5, :].float().sum())
+         attn_output, attn_weights = attention_interface(
+             self,
+             query_states,
+@@ -299,7 +312,7 @@ class LlamaAttention(nn.Module):
+             scaling=self.scaling,
+             **kwargs,
+         )
+-
++        print('post-attention attn_output', attn_output.float().sum())
+         attn_output = attn_output.reshape(*input_shape, -1).contiguous()
+         attn_output = self.o_proj(attn_output)
+         return attn_output, attn_weights
