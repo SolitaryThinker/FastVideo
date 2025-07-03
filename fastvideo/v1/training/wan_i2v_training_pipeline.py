@@ -145,7 +145,10 @@ class WanI2VTrainingPipeline(TrainingPipeline):
                 num_latent_t=self.training_args.num_latent_t)
             
             # Handle image latents separately - they should NOT be sharded temporally
-            # Instead, all SP ranks should see the same image conditioning
+            # Image latents contain: 1) temporal mask indicating conditioning frames
+            # 2) encoded first frame. The mask has different values at different temporal
+            # positions, so sharding would give different ranks inconsistent conditioning.
+            # All SP ranks must see the complete image conditioning information.
             assert training_batch.image_latents is not None
             assert isinstance(training_batch.image_latents, torch.Tensor)
             image_latents = training_batch.image_latents.to(get_torch_device(),
