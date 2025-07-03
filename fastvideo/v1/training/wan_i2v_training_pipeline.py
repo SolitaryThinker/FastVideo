@@ -18,6 +18,7 @@ from fastvideo.v1.pipelines.pipeline_batch_info import (ForwardBatch,
 from fastvideo.v1.pipelines.wan.wan_i2v_pipeline import (
     WanImageToVideoValidationPipeline)
 from fastvideo.v1.training.training_pipeline import TrainingPipeline
+from fastvideo.v1.training.training_utils import shard_latents_across_sp
 from fastvideo.v1.utils import is_vsa_available
 
 vsa_available = is_vsa_available()
@@ -100,7 +101,7 @@ class WanI2VTrainingPipeline(TrainingPipeline):
 
     def _prepare_dit_inputs(self,
                             training_batch: TrainingBatch) -> TrainingBatch:
-        """Override to properly handle I2V concatenation - call parent first, then concatenate image conditioning."""
+        """Override to properly handle I2V concatenation with SP - shard video latents first, then concatenate image latents."""
         assert self.training_args is not None
         assert training_batch.latents is not None
         assert training_batch.encoder_hidden_states is not None
@@ -111,13 +112,63 @@ class WanI2VTrainingPipeline(TrainingPipeline):
         # First, call parent method to prepare noise, timesteps, etc. for video latents
         training_batch = super()._prepare_dit_inputs(training_batch)
 
+        # For I2V with SP: Shard video components BEFORE concatenation to avoid 
+        # inconsistent image conditioning across SP ranks
+        if self.training_args.sp_size > 1:
+            # Shard video latents across SP groups
+            training_batch.latents = shard_latents_across_sp(
+                training_batch.latents,
+                num_latent_t=self.training_args.num_latent_t)
+            # Shard noisy video input 
+            training_batch.noisy_model_input = shard_latents_across_sp(
+                training_batch.noisy_model_input,
+                num_latent_t=self.training_args.num_latent_t)
+            # Shard noise to match latents
+            training_batch.noise = shard_latents_across_sp(
+                training_batch.noise,
+                num_latent_t=self.training_args.num_latent_t)
+
+        # Image latents should be same across all SP ranks (don't shard them)
+        # This ensures consistent image conditioning across all SP processes
         assert isinstance(training_batch.image_latents, torch.Tensor)
         image_latents = training_batch.image_latents.to(get_torch_device(),
                                                         dtype=torch.bfloat16)
 
+        # Concatenate AFTER sharding so image latents are consistent across SP ranks
         training_batch.noisy_model_input = torch.cat(
             [training_batch.noisy_model_input, image_latents], dim=1)
 
+        return training_batch
+
+    def train_one_step(self, training_batch: TrainingBatch) -> TrainingBatch:
+        """Override to prevent double sharding for I2V since _prepare_dit_inputs already handles it."""
+        assert self.training_args is not None
+
+        training_batch = self._prepare_training(training_batch)
+
+        for _ in range(self.training_args.gradient_accumulation_steps):
+            training_batch = self._get_next_batch(training_batch)
+
+            # Normalize DIT input
+            training_batch = self._normalize_dit_input(training_batch)
+            # Create noisy model input and handle SP sharding for I2V
+            training_batch = self._prepare_dit_inputs(training_batch)
+
+            # Skip SP sharding here for I2V since _prepare_dit_inputs already handled it
+            # This prevents double sharding and maintains image conditioning consistency
+            
+            training_batch = self._build_attention_metadata(training_batch)
+            training_batch = self._build_input_kwargs(training_batch)
+            training_batch = self._transformer_forward_and_compute_loss(
+                training_batch)
+
+        training_batch = self._clip_grad_norm(training_batch)
+
+        self.optimizer.step()
+        self.lr_scheduler.step()
+
+        training_batch.total_loss = training_batch.total_loss
+        training_batch.grad_norm = training_batch.grad_norm
         return training_batch
 
     def _build_input_kwargs(self,
