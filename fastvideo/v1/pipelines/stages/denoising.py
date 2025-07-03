@@ -107,12 +107,10 @@ class DenoisingStage(PipelineStage):
                                 n=sp_world_size).contiguous()
             latents = latents[:, :, rank_in_sp_group, :, :, :]
             batch.latents = latents
-            if batch.image_latent is not None:
-                image_latent = rearrange(batch.image_latent,
-                                         "b t (n s) h w -> b t n s h w",
-                                         n=sp_world_size).contiguous()
-                image_latent = image_latent[:, :, rank_in_sp_group, :, :, :]
-                batch.image_latent = image_latent
+            # Note: image_latent should NOT be sharded temporally since it's
+            # conditioning information that needs to be consistent across all SP ranks
+            # DO NOT shard batch.image_latent here
+
         # Get timesteps and calculate warmup steps
         timesteps = batch.timesteps
         # TODO(will): remove this once we add input/output validation for stages
