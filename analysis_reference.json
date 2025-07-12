@@ -1,0 +1,369 @@
+{
+  "video_info": {
+    "width": 640,
+    "height": 480,
+    "fps": 30.0,
+    "frame_count": 150,
+    "duration": 5.0
+  },
+  "frame_stats": [
+    {
+      "frame": 0,
+      "mean_brightness": 127.82575846354166,
+      "std_brightness": 82.85544472916175,
+      "contrast": 82.85544472916175,
+      "sharpness": 924.6190039051901
+    },
+    {
+      "frame": 1,
+      "mean_brightness": 127.845478515625,
+      "std_brightness": 82.85312942038756,
+      "contrast": 82.85312942038756,
+      "sharpness": 929.3948436950689
+    },
+    {
+      "frame": 2,
+      "mean_brightness": 127.84823893229166,
+      "std_brightness": 82.85296251562033,
+      "contrast": 82.85296251562033,
+      "sharpness": 933.7331672581037
+    },
+    {
+      "frame": 3,
+      "mean_brightness": 127.8551171875,
+      "std_brightness": 82.847509375671,
+      "contrast": 82.847509375671,
+      "sharpness": 938.0091926818425
+    },
+    {
+      "frame": 4,
+      "mean_brightness": 127.84408203125,
+      "std_brightness": 82.85281192266966,
+      "contrast": 82.85281192266966,
+      "sharpness": 942.6470019370079
+    },
+    {
+      "frame": 5,
+      "mean_brightness": 127.84305989583333,
+      "std_brightness": 82.85324503936889,
+      "contrast": 82.85324503936889,
+      "sharpness": 945.1124609088471
+    },
+    {
+      "frame": 6,
+      "mean_brightness": 127.82998697916666,
+      "std_brightness": 82.86110410462396,
+      "contrast": 82.86110410462396,
+      "sharpness": 947.8913312496505
+    },
+    {
+      "frame": 7,
+      "mean_brightness": 127.813173828125,
+      "std_brightness": 82.86612796758924,
+      "contrast": 82.86612796758924,
+      "sharpness": 950.539283789698
+    },
+    {
+      "frame": 8,
+      "mean_brightness": 127.78551106770833,
+      "std_brightness": 82.8788919419412,
+      "contrast": 82.8788919419412,
+      "sharpness": 953.453880156411
+    },
+    {
+      "frame": 9,
+      "mean_brightness": 127.76992838541666,
+      "std_brightness": 82.88367847107119,
+      "contrast": 82.88367847107119,
+      "sharpness": 956.1852994357637
+    },
+    {
+      "frame": 10,
+      "mean_brightness": 127.74152018229167,
+      "std_brightness": 82.89294693987267,
+      "contrast": 82.89294693987267,
+      "sharpness": 959.1788768997086
+    },
+    {
+      "frame": 11,
+      "mean_brightness": 127.71284830729167,
+      "std_brightness": 82.9020713799581,
+      "contrast": 82.9020713799581,
+      "sharpness": 962.1066698898206
+    },
+    {
+      "frame": 12,
+      "mean_brightness": 127.66088216145833,
+      "std_brightness": 82.91695175151735,
+      "contrast": 82.91695175151735,
+      "sharpness": 965.0256152023204
+    },
+    {
+      "frame": 13,
+      "mean_brightness": 127.62719401041667,
+      "std_brightness": 82.92503458393138,
+      "contrast": 82.92503458393138,
+      "sharpness": 967.8749185750216
+    },
+    {
+      "frame": 14,
+      "mean_brightness": 127.580869140625,
+      "std_brightness": 82.93648860708876,
+      "contrast": 82.93648860708876,
+      "sharpness": 970.8347524805705
+    },
+    {
+      "frame": 15,
+      "mean_brightness": 127.52429361979166,
+      "std_brightness": 82.94662959785018,
+      "contrast": 82.94662959785018,
+      "sharpness": 973.4924446220292
+    },
+    {
+      "frame": 16,
+      "mean_brightness": 127.46055989583333,
+      "std_brightness": 82.95473453781044,
+      "contrast": 82.95473453781044,
+      "sharpness": 976.1323240610333
+    },
+    {
+      "frame": 17,
+      "mean_brightness": 127.40556966145833,
+      "std_brightness": 82.96565830457301,
+      "contrast": 82.96565830457301,
+      "sharpness": 978.4144334255217
+    },
+    {
+      "frame": 18,
+      "mean_brightness": 127.347158203125,
+      "std_brightness": 82.97677094819547,
+      "contrast": 82.97677094819547,
+      "sharpness": 980.6907258770308
+    },
+    {
+      "frame": 19,
+      "mean_brightness": 127.27041341145834,
+      "std_brightness": 82.97605946081191,
+      "contrast": 82.97605946081191,
+      "sharpness": 982.3881184868709
+    },
+    {
+      "frame": 20,
+      "mean_brightness": 127.190302734375,
+      "std_brightness": 82.97794624395135,
+      "contrast": 82.97794624395135,
+      "sharpness": 984.3866764025266
+    },
+    {
+      "frame": 21,
+      "mean_brightness": 127.13611979166667,
+      "std_brightness": 82.97235950275488,
+      "contrast": 82.97235950275488,
+      "sharpness": 985.4078417966098
+    },
+    {
+      "frame": 22,
+      "mean_brightness": 127.06233723958333,
+      "std_brightness": 82.96358427582234,
+      "contrast": 82.96358427582234,
+      "sharpness": 986.152014972676
+    },
+    {
+      "frame": 23,
+      "mean_brightness": 127.00372721354167,
+      "std_brightness": 82.95239549132083,
+      "contrast": 82.95239549132083,
+      "sharpness": 986.6178417772821
+    },
+    {
+      "frame": 24,
+      "mean_brightness": 126.91695963541666,
+      "std_brightness": 82.94035153585739,
+      "contrast": 82.94035153585739,
+      "sharpness": 986.9492153546546
+    },
+    {
+      "frame": 25,
+      "mean_brightness": 126.85811197916667,
+      "std_brightness": 82.91237557046271,
+      "contrast": 82.91237557046271,
+      "sharpness": 986.1688346201161
+    },
+    {
+      "frame": 26,
+      "mean_brightness": 126.79201822916667,
+      "std_brightness": 82.89098233956705,
+      "contrast": 82.89098233956705,
+      "sharpness": 985.6367578121182
+    },
+    {
+      "frame": 27,
+      "mean_brightness": 126.72509765625,
+      "std_brightness": 82.86077968624129,
+      "contrast": 82.86077968624129,
+      "sharpness": 984.7388476547238
+    },
+    {
+      "frame": 28,
+      "mean_brightness": 126.64214192708333,
+      "std_brightness": 82.83080464426453,
+      "contrast": 82.83080464426453,
+      "sharpness": 983.4266080718571
+    },
+    {
+      "frame": 29,
+      "mean_brightness": 126.59,
+      "std_brightness": 82.78793440044065,
+      "contrast": 82.78793440044065,
+      "sharpness": 981.7013703549599
+    },
+    {
+      "frame": 30,
+      "mean_brightness": 125.45222330729166,
+      "std_brightness": 82.7341015061084,
+      "contrast": 82.7341015061084,
+      "sharpness": 849.3231087173357
+    },
+    {
+      "frame": 31,
+      "mean_brightness": 125.39776041666667,
+      "std_brightness": 82.69320615348397,
+      "contrast": 82.69320615348397,
+      "sharpness": 846.8568388900653
+    },
+    {
+      "frame": 32,
+      "mean_brightness": 125.319013671875,
+      "std_brightness": 82.65008076656588,
+      "contrast": 82.65008076656588,
+      "sharpness": 844.5631607818498
+    },
+    {
+      "frame": 33,
+      "mean_brightness": 125.27738606770833,
+      "std_brightness": 82.60766873555121,
+      "contrast": 82.60766873555121,
+      "sharpness": 841.0161913002864
+    },
+    {
+      "frame": 34,
+      "mean_brightness": 125.23189127604167,
+      "std_brightness": 82.57510548644521,
+      "contrast": 82.57510548644521,
+      "sharpness": 838.5316829426129
+    },
+    {
+      "frame": 35,
+      "mean_brightness": 125.19322916666667,
+      "std_brightness": 82.5454326431788,
+      "contrast": 82.5454326431788,
+      "sharpness": 835.4168879746757
+    },
+    {
+      "frame": 36,
+      "mean_brightness": 125.14293294270833,
+      "std_brightness": 82.52116093351155,
+      "contrast": 82.52116093351155,
+      "sharpness": 832.2114876047665
+    },
+    {
+      "frame": 37,
+      "mean_brightness": 125.12385416666666,
+      "std_brightness": 82.49387630359793,
+      "contrast": 82.49387630359793,
+      "sharpness": 828.8834765316009
+    },
+    {
+      "frame": 38,
+      "mean_brightness": 125.09759114583333,
+      "std_brightness": 82.47477550413724,
+      "contrast": 82.47477550413724,
+      "sharpness": 825.5845864484043
+    },
+    {
+      "frame": 39,
+      "mean_brightness": 125.08126627604166,
+      "std_brightness": 82.46071760860896,
+      "contrast": 82.46071760860896,
+      "sharpness": 822.4689420275263
+    },
+    {
+      "frame": 40,
+      "mean_brightness": 125.058798828125,
+      "std_brightness": 82.45111159811927,
+      "contrast": 82.45111159811927,
+      "sharpness": 819.2092576222315
+    },
+    {
+      "frame": 41,
+      "mean_brightness": 125.051796875,
+      "std_brightness": 82.4451128933693,
+      "contrast": 82.4451128933693,
+      "sharpness": 815.9327048300744
+    },
+    {
+      "frame": 42,
+      "mean_brightness": 125.0549609375,
+      "std_brightness": 82.44276636971362,
+      "contrast": 82.44276636971362,
+      "sharpness": 812.8052179776404
+    },
+    {
+      "frame": 43,
+      "mean_brightness": 125.06036458333334,
+      "std_brightness": 82.4468237832751,
+      "contrast": 82.4468237832751,
+      "sharpness": 809.8672330084479
+    },
+    {
+      "frame": 44,
+      "mean_brightness": 125.05834309895833,
+      "std_brightness": 82.45429315696724,
+      "contrast": 82.45429315696724,
+      "sharpness": 806.8587434405858
+    },
+    {
+      "frame": 45,
+      "mean_brightness": 125.088896484375,
+      "std_brightness": 82.46979543605055,
+      "contrast": 82.46979543605055,
+      "sharpness": 803.8395799280695
+    },
+    {
+      "frame": 46,
+      "mean_brightness": 125.10734375,
+      "std_brightness": 82.48912756310021,
+      "contrast": 82.48912756310021,
+      "sharpness": 801.2929068476253
+    },
+    {
+      "frame": 47,
+      "mean_brightness": 125.13517252604167,
+      "std_brightness": 82.52055962176486,
+      "contrast": 82.52055962176486,
+      "sharpness": 798.7224055569011
+    },
+    {
+      "frame": 48,
+      "mean_brightness": 125.16402669270833,
+      "std_brightness": 82.54616917285666,
+      "contrast": 82.54616917285666,
+      "sharpness": 796.4708754747072
+    },
+    {
+      "frame": 49,
+      "mean_brightness": 125.19957356770833,
+      "std_brightness": 82.57513346726037,
+      "contrast": 82.57513346726037,
+      "sharpness": 794.2983333196003
+    }
+  ],
+  "overall_stats": {
+    "mean_brightness": 126.51609772135416,
+    "mean_contrast": 82.75369567988126,
+    "mean_sharpness": 908.2612794916008
+  },
+  "frames_analyzed": 50,
+  "analysis_time": 0.1827695369720459,
+  "timestamp": 1752281843.2388198
+}

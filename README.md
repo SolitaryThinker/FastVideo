@@ -161,3 +161,276 @@ If you use FastVideo for your research, please cite our paper:
       url={https://arxiv.org/abs/2502.06155},
 }
 ```
+
+# Video Benchmark Suite
+
+A comprehensive video quality assessment tool that provides an alternative to vbench with easier installation and similar functionality.
+
+## Features
+
+- **Multiple Quality Metrics**: PSNR, SSIM, VMAF, VIF, MSE, and more
+- **Frame-by-frame Analysis**: Detailed per-frame quality metrics
+- **Statistical Summaries**: Mean, standard deviation, min/max values
+- **Visualization**: Automatic generation of quality metric plots
+- **Multiple Output Formats**: JSON and CSV export
+- **Easy Installation**: No complex dependencies like the original vbench
+- **Flexible Usage**: Single video analysis or video comparison
+- **Cross-platform**: Works on Linux, macOS, and Windows
+
+## Installation
+
+### Prerequisites
+
+1. **Python 3.9 or higher**
+2. **FFmpeg** (for video processing)
+
+### Install Dependencies
+
+```bash
+# Install Python packages
+pip install ffmpeg-quality-metrics opencv-python matplotlib numpy scikit-image
+
+# Install FFmpeg
+# Ubuntu/Debian:
+sudo apt install ffmpeg
+
+# macOS:
+brew install ffmpeg
+
+# Windows:
+# Download from https://ffmpeg.org/download.html
+```
+
+### Quick Setup
+
+```bash
+# Clone or download the scripts
+wget https://raw.githubusercontent.com/your-repo/video_benchmark_suite.py
+wget https://raw.githubusercontent.com/your-repo/demo_video_benchmark.py
+
+# Make executable
+chmod +x video_benchmark_suite.py demo_video_benchmark.py
+```
+
+## Usage
+
+### Basic Examples
+
+#### Single Video Analysis
+```bash
+python video_benchmark_suite.py --video input.mp4
+```
+
+#### Video Comparison
+```bash
+python video_benchmark_suite.py --reference original.mp4 --distorted compressed.mp4
+```
+
+#### Custom Metrics and Settings
+```bash
+python video_benchmark_suite.py \
+    --reference ref.mp4 \
+    --distorted dist.mp4 \
+    --metrics psnr ssim vmaf \
+    --max-frames 100 \
+    --output-dir results
+```
+
+### Command Line Options
+
+```
+usage: video_benchmark_suite.py [-h] [--video VIDEO] [--reference REFERENCE] 
+                                [--distorted DISTORTED] [--metrics METRICS [METRICS ...]]
+                                [--max-frames MAX_FRAMES] [--output-dir OUTPUT_DIR]
+                                [--no-visualizations] [--verbose]
+
+Video Benchmark Suite - Comprehensive video quality assessment tool
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --video VIDEO         Single video file to analyze
+  --reference REFERENCE Reference video file (for comparison)
+  --distorted DISTORTED Distorted video file (for comparison)
+  --metrics METRICS [METRICS ...]
+                        Quality metrics to calculate (default: psnr ssim)
+                        Choices: psnr, ssim, vmaf, vif, msad
+  --max-frames MAX_FRAMES
+                        Maximum number of frames to analyze (default: 100)
+  --output-dir OUTPUT_DIR
+                        Output directory for results (default: benchmark_results)
+  --no-visualizations   Skip generating visualization plots
+  --verbose, -v         Enable verbose output
+```
+
+### Available Metrics
+
+| Metric | Description | Scale | Notes |
+|--------|-------------|--------|-------|
+| **PSNR** | Peak Signal-to-Noise Ratio | dB (higher is better) | Standard quality metric |
+| **SSIM** | Structural Similarity Index | 0-1 (higher is better) | Perceptual quality metric |
+| **VMAF** | Video Multi-Method Assessment Fusion | 0-100 (higher is better) | Netflix's perceptual metric |
+| **VIF** | Visual Information Fidelity | 0-1 (higher is better) | Information-theoretic metric |
+| **MSE** | Mean Squared Error | ≥0 (lower is better) | Basic pixel difference |
+
+## Demo
+
+Run the included demo to see the tool in action:
+
+```bash
+python demo_video_benchmark.py
+```
+
+This will:
+1. Create sample videos with different quality levels
+2. Run various quality assessments
+3. Generate reports and visualizations
+4. Show you where to find the results
+
+## Output
+
+### JSON Report
+The tool generates detailed JSON reports with:
+- Video information (resolution, fps, duration, etc.)
+- Frame-by-frame quality metrics
+- Statistical summaries (mean, std, min, max)
+- Timestamps and metadata
+
+Example output structure:
+```json
+{
+  "reference_path": "reference.mp4",
+  "distorted_path": "distorted.mp4",
+  "reference_info": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30.0,
+    "frame_count": 150,
+    "duration": 5.0
+  },
+  "basic_metrics": {
+    "psnr_values": [28.5, 29.1, 28.8, ...],
+    "ssim_values": [0.85, 0.87, 0.86, ...],
+    "statistics": {
+      "psnr": {
+        "mean": 28.8,
+        "std": 1.2,
+        "min": 26.1,
+        "max": 31.5
+      }
+    }
+  }
+}
+```
+
+### Visualizations
+Automatic PDF generation with:
+- Quality metric plots over time
+- Statistical summaries
+- Video information comparison
+
+## Comparison with vbench
+
+| Feature | Video Benchmark Suite | Original vbench |
+|---------|----------------------|-----------------|
+| **Installation** | ✅ Easy (pip install) | ❌ Complex (many dependencies) |
+| **Rust Dependencies** | ✅ None required | ❌ Requires Rust toolchain |
+| **VMAF Support** | ✅ Via ffmpeg-quality-metrics | ✅ Built-in |
+| **Custom Metrics** | ✅ Extensible | ✅ Built-in suite |
+| **Visualization** | ✅ Matplotlib plots | ✅ Built-in plots |
+| **Cross-platform** | ✅ Linux/macOS/Windows | ⚠️ Limited |
+| **Memory Usage** | ✅ Efficient | ⚠️ Can be high |
+
+## Advanced Usage
+
+### Using as a Python Module
+
+```python
+from video_benchmark_suite import VideoQualityAssessment
+
+# Initialize
+vqa = VideoQualityAssessment(output_dir="my_results")
+
+# Single video analysis
+results = vqa.analyze_single_video("video.mp4", max_frames=50)
+
+# Video comparison
+results = vqa.compare_videos("ref.mp4", "dist.mp4", 
+                           metrics=['psnr', 'ssim'], 
+                           max_frames=100)
+
+# Generate reports
+report_file = vqa.generate_report(results)
+viz_file = vqa.create_visualizations(results)
+```
+
+### Custom Analysis
+
+```python
+# Get basic video information
+info = vqa.get_video_info("video.mp4")
+print(f"Resolution: {info['width']}x{info['height']}")
+
+# Calculate specific metrics
+metrics = vqa.calculate_basic_metrics("ref.mp4", "dist.mp4", max_frames=10)
+print(f"Average PSNR: {metrics['statistics']['psnr']['mean']:.2f} dB")
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **FFmpeg not found**
+   ```bash
+   # Install FFmpeg
+   sudo apt install ffmpeg  # Ubuntu/Debian
+   brew install ffmpeg      # macOS
+   ```
+
+2. **ffmpeg-quality-metrics not working**
+   ```bash
+   # Reinstall with proper PATH
+   pip install --user ffmpeg-quality-metrics
+   export PATH=$PATH:~/.local/bin
+   ```
+
+3. **OpenCV import error**
+   ```bash
+   # Install OpenCV
+   pip install opencv-python
+   ```
+
+4. **Matplotlib display issues**
+   ```bash
+   # For headless systems
+   export MPLBACKEND=Agg
+   ```
+
+### Performance Tips
+
+- Use `--max-frames` to limit analysis for faster results
+- Skip visualizations with `--no-visualizations` for batch processing
+- Use lower resolution videos for initial testing
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- **ffmpeg-quality-metrics**: For providing the VMAF and advanced metrics
+- **OpenCV**: For video processing capabilities
+- **scikit-image**: For image quality metrics
+- **matplotlib**: For visualization generation
+
+## Related Projects
+
+- [ffmpeg-quality-metrics](https://github.com/slhck/ffmpeg-quality-metrics): Advanced video quality metrics
+- [VMAF](https://github.com/Netflix/vmaf): Netflix's Video Multi-Method Assessment Fusion
+- [vbench](https://github.com/Vchitect/VBench): Original comprehensive video benchmark (complex installation)
