@@ -3,7 +3,7 @@
 # 🔧 Installation
 
 # Building from Source
-We test our code on Pytorch 2.5.0 and CUDA>=12.4. We support H100 (via ThunderKittens) and RTX 4090 (via Triton) for VSA.
+We test our code on Pytorch 2.7.1 and CUDA>=12.8. We support H100 (via ThunderKittens) and RTX 4090 (via Triton) for VSA.
 
 First, install C++20 for ThunderKittens:
 
@@ -21,7 +21,7 @@ sudo apt install clang-11
 Install VSA:
 
 ```bash
-export CUDA_HOME=/usr/local/cuda-12.4
+export CUDA_HOME=/usr/local/cuda-12.8
 export PATH=${CUDA_HOME}/bin:${PATH} 
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
 git submodule update --init --recursive
