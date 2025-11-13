@@ -16,13 +16,13 @@ from fastvideo.layers.lora.linear import (BaseLayerWithLoRA, get_lora_layer,
                                           replace_submodule)
 from fastvideo.logger import init_logger
 from fastvideo.models.loader.utils import get_param_names_mapping
-from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
+from fastvideo.pipelines.inference_pipeline import InferencePipeline
 from fastvideo.utils import maybe_download_lora
 
 logger = init_logger(__name__)
 
 
-class LoRAPipeline(ComposedPipelineBase):
+class LoRAPipeline(InferencePipeline):
     """
     Pipeline that supports injecting LoRA adapters into the diffusion transformer.
     TODO: support training.

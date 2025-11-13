@@ -8,7 +8,6 @@ using the modular pipeline architecture.
 
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
-from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
 from fastvideo.pipelines.lora_pipeline import LoRAPipeline
 
 # isort: off
@@ -23,7 +22,7 @@ from fastvideo.models.schedulers.scheduling_flow_match_euler_discrete import (
 logger = init_logger(__name__)
 
 
-class WanImageToVideoDmdPipeline(LoRAPipeline, ComposedPipelineBase):
+class WanImageToVideoDmdPipeline(LoRAPipeline):
 
     _required_config_modules = [
         "text_encoder", "tokenizer", "vae", "transformer", "scheduler", \

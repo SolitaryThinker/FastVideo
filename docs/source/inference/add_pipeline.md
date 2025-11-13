@@ -167,7 +167,7 @@ Pipelines are composed of stages, each handling a specific part of the diffusion
 ### Creating Your Pipeline
 
 ```python
-from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
+from fastvideo.pipelines.inference_pipeline import InferencePipeline
 from fastvideo.pipelines.stages import (
     InputValidationStage, CLIPTextEncodingStage, TimestepPreparationStage,
     LatentPreparationStage, DenoisingStage, DecodingStage
@@ -176,7 +176,7 @@ from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.pipelines.pipeline_batch_info import ForwardBatch
 import torch
 
-class MyCustomPipeline(ComposedPipelineBase):
+class MyCustomPipeline(InferencePipeline):
     """Custom diffusion pipeline implementation."""
     
     # Define required model components from model_index.json

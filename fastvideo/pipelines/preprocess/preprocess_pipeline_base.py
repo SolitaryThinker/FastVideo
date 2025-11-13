@@ -16,14 +16,14 @@ from fastvideo.dataset.preprocessing_datasets import PreprocessBatch
 from fastvideo.distributed import get_local_torch_device
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
-from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
+from fastvideo.pipelines.inference_pipeline import InferencePipeline
 from fastvideo.pipelines.pipeline_batch_info import ForwardBatch
 from fastvideo.pipelines.stages import TextEncodingStage
 
 logger = init_logger(__name__)
 
 
-class BasePreprocessPipeline(ComposedPipelineBase):
+class BasePreprocessPipeline(InferencePipeline):
     """Base class for preprocessing pipelines that handles common functionality."""
 
     def create_pipeline_stages(self, fastvideo_args: FastVideoArgs):

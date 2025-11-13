@@ -20,7 +20,6 @@ from fastvideo.logger import init_logger
 from fastvideo.models.encoders.bert import HunyuanClip  # type: ignore
 from fastvideo.models.encoders.stepllm import STEP1TextEncoder
 from fastvideo.models.loader.component_loader import PipelineComponentLoader
-from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
 from fastvideo.pipelines.lora_pipeline import LoRAPipeline
 from fastvideo.pipelines.stages import (DecodingStage, DenoisingStage,
                                         InputValidationStage,
@@ -31,7 +30,7 @@ from fastvideo.pipelines.stages import (DecodingStage, DenoisingStage,
 logger = init_logger(__name__)
 
 
-class StepVideoPipeline(LoRAPipeline, ComposedPipelineBase):
+class StepVideoPipeline(LoRAPipeline):
 
     _required_config_modules = ["transformer", "scheduler", "vae"]
 

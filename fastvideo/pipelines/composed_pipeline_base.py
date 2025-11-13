@@ -89,23 +89,12 @@ class ComposedPipelineBase(ABC):
         if self.post_init_called:
             return
         self.post_init_called = True
-        if self.fastvideo_args.training_mode:
-            assert isinstance(self.fastvideo_args, TrainingArgs)
-            self.training_args = self.fastvideo_args
-            assert self.training_args is not None
-            self.initialize_training_pipeline(self.training_args)
-            if self.training_args.log_validation:
-                self.initialize_validation_pipeline(self.training_args)
+        self.setup_pipeline()
 
-        self.initialize_pipeline(self.fastvideo_args)
-        if self.fastvideo_args.enable_torch_compile:
-            self.modules["transformer"] = torch.compile(
-                self.modules["transformer"])
-            logger.info("Torch Compile enabled for DiT")
-
-        if not self.fastvideo_args.training_mode:
-            logger.info("Creating pipeline stages...")
-            self.create_pipeline_stages(self.fastvideo_args)
+    @abstractmethod
+    def setup_pipeline(self) -> None:
+        """Finalize pipeline initialization after modules are loaded."""
+        raise NotImplementedError
 
     def initialize_training_pipeline(self, training_args: TrainingArgs):
         raise NotImplementedError(

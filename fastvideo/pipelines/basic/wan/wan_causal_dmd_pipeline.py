@@ -7,7 +7,7 @@ This module wires the causal DMD denoising stage into the modular pipeline.
 
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
-from fastvideo.pipelines import ComposedPipelineBase, LoRAPipeline
+from fastvideo.pipelines import LoRAPipeline
 
 # isort: off
 from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage,
@@ -20,7 +20,7 @@ from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage,
 logger = init_logger(__name__)
 
 
-class WanCausalDMDPipeline(LoRAPipeline, ComposedPipelineBase):
+class WanCausalDMDPipeline(LoRAPipeline):
 
     _required_config_modules = [
         "text_encoder", "tokenizer", "vae", "transformer", "scheduler"

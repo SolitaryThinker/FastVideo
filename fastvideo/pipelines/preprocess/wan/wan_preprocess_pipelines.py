@@ -1,5 +1,6 @@
 from fastvideo.fastvideo_args import FastVideoArgs
-from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
+from fastvideo.fastvideo_args import FastVideoArgs
+from fastvideo.pipelines.inference_pipeline import InferencePipeline
 from fastvideo.pipelines.preprocess.preprocess_stages import (
     TextTransformStage, VideoTransformStage)
 from fastvideo.pipelines.stages import (EncodingStage, ImageEncodingStage,
@@ -7,7 +8,7 @@ from fastvideo.pipelines.stages import (EncodingStage, ImageEncodingStage,
 from fastvideo.pipelines.stages.image_encoding import ImageVAEEncodingStage
 
 
-class PreprocessPipelineI2V(ComposedPipelineBase):
+class PreprocessPipelineI2V(InferencePipeline):
     _required_config_modules = [
         "image_encoder", "image_processor", "text_encoder", "tokenizer", "vae"
     ]
@@ -50,7 +51,7 @@ class PreprocessPipelineI2V(ComposedPipelineBase):
                        stage=EncodingStage(vae=self.get_module("vae"), ))
 
 
-class PreprocessPipelineT2V(ComposedPipelineBase):
+class PreprocessPipelineT2V(InferencePipeline):
     _required_config_modules = ["text_encoder", "tokenizer", "vae"]
 
     def create_pipeline_stages(self, fastvideo_args: FastVideoArgs):

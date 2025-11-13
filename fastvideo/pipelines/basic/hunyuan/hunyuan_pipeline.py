@@ -8,7 +8,7 @@ using the modular pipeline architecture.
 
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
-from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
+from fastvideo.pipelines.inference_pipeline import InferencePipeline
 from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage,
                                         DenoisingStage, InputValidationStage,
                                         LatentPreparationStage,
@@ -20,7 +20,7 @@ from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage,
 logger = init_logger(__name__)
 
 
-class HunyuanVideoPipeline(ComposedPipelineBase):
+class HunyuanVideoPipeline(InferencePipeline):
 
     _required_config_modules = [
         "text_encoder", "text_encoder_2", "tokenizer", "tokenizer_2", "vae",

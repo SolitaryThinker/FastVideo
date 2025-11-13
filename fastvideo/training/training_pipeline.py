@@ -79,6 +79,19 @@ class TrainingPipeline(LoRAPipeline, ABC):
         super().__init__(model_path, fastvideo_args, required_config_modules,
                          loaded_modules)  # type: ignore
 
+    def setup_pipeline(self) -> None:
+        assert isinstance(self.fastvideo_args, TrainingArgs)
+        self.training_args = self.fastvideo_args
+        self.initialize_training_pipeline(self.training_args)
+        if self.training_args.log_validation:
+            self.initialize_validation_pipeline(self.training_args)
+
+        self.initialize_pipeline(self.fastvideo_args)
+        if self.fastvideo_args.enable_torch_compile:
+            self.modules["transformer"] = torch.compile(
+                self.modules["transformer"])
+            logger.info("Torch Compile enabled for DiT")
+
     def create_pipeline_stages(self, fastvideo_args: FastVideoArgs):
         raise RuntimeError(
             "create_pipeline_stages should not be called for training pipeline")

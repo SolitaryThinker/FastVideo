@@ -10,6 +10,7 @@ from typing import cast
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
 from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
+from fastvideo.pipelines.inference_pipeline import InferencePipeline
 from fastvideo.pipelines.lora_pipeline import LoRAPipeline
 from fastvideo.pipelines.pipeline_batch_info import ForwardBatch, TrainingBatch
 from fastvideo.pipelines.pipeline_registry import (PipelineType,
@@ -20,7 +21,7 @@ from fastvideo.utils import (maybe_download_model,
 logger = init_logger(__name__)
 
 
-class PipelineWithLoRA(LoRAPipeline, ComposedPipelineBase):
+class PipelineWithLoRA(LoRAPipeline):
     """Type for a pipeline that has both ComposedPipelineBase and LoRAPipeline functionality."""
     pass
 
@@ -72,6 +73,7 @@ def build_pipeline(
 __all__ = [
     "build_pipeline",
     "ComposedPipelineBase",
+    "InferencePipeline",
     "ForwardBatch",
     "LoRAPipeline",
     "TrainingBatch",

@@ -10,7 +10,7 @@ from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
 from fastvideo.models.schedulers.scheduling_flow_unipc_multistep import (
     FlowUniPCMultistepScheduler)
-from fastvideo.pipelines import ComposedPipelineBase, LoRAPipeline
+from fastvideo.pipelines import LoRAPipeline
 from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage,
                                         DenoisingStage, InputValidationStage,
                                         LatentPreparationStage,
@@ -20,7 +20,7 @@ from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage,
 logger = init_logger(__name__)
 
 
-class WanPipeline(LoRAPipeline, ComposedPipelineBase):
+class WanPipeline(LoRAPipeline):
     """
     Wan video diffusion pipeline with LoRA support.
     """

@@ -64,16 +64,23 @@ with set_current_fastvideo_args(fastvideo_args):
 (design-pipeline-system)=
 ## Pipeline System
 
-### `ComposedPipelineBase`
+### `ComposedPipelineBase` and `InferencePipeline`
 
-This foundational class provides:
+`ComposedPipelineBase` provides the shared foundation for all composed pipelines:
 
 - **Model Loading**: Automatically loads components from HuggingFace-Diffusers-compatible model directories
 - **Stage Management**: Creates and orchestrates processing stages
 - **Data Flow Coordination**: Ensures proper state flow between stages
 
+Inference pipelines typically derive from :class:`fastvideo.pipelines.inference_pipeline.InferencePipeline`,
+which extends :class:`~fastvideo.pipelines.composed_pipeline_base.ComposedPipelineBase` with inference-specific setup
+such as Torch Compile integration and stage construction.
+
 ```python
-class MyCustomPipeline(ComposedPipelineBase):
+from fastvideo.pipelines.inference_pipeline import InferencePipeline
+
+
+class MyCustomPipeline(InferencePipeline):
     _required_config_modules = [
         "text_encoder", "tokenizer", "vae", "transformer", "scheduler"
     ]
