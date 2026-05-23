@@ -36,8 +36,17 @@ try:
 
     FLASH_ATTN_AVAILABLE = True
 except ImportError:
-    flash_attn_varlen_func_impl = None
-    FLASH_ATTN_AVAILABLE = False
+    # flash_attn_no_pad has unrelated top-level imports (bert_padding,
+    # flash_attn_varlen_qkvpacked_func) that may not be available even when
+    # flash_attn.flash_attn_varlen_func is. Restore the direct fallback so
+    # BSA keeps flash-attn behavior in partial-install environments — this
+    # matches the pre-slice-5 two-level fallback.
+    try:
+        from flash_attn import flash_attn_varlen_func as flash_attn_varlen_func_impl
+        FLASH_ATTN_AVAILABLE = True
+    except ImportError:
+        flash_attn_varlen_func_impl = None
+        FLASH_ATTN_AVAILABLE = False
 
 logger = init_logger(__name__)
 
