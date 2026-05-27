@@ -383,6 +383,7 @@ class VideoGenerator:
         if grid_sizes is not None:
             kwargs['grid_sizes'] = grid_sizes
 
+        prompt_embeds = kwargs.pop("prompt_embeds", None)
         sampling_param.update(kwargs)
 
         if fastvideo_args.prompt_txt is not None or sampling_param.prompt_path is not None:
@@ -432,6 +433,8 @@ class VideoGenerator:
             raise ValueError("Either prompt or prompt_txt must be provided")
         output_path = self._prepare_output_path(sampling_param.output_path, prompt)
         kwargs["output_path"] = output_path
+        if prompt_embeds is not None:
+            kwargs["prompt_embeds"] = prompt_embeds
         return self._generate_single_video(
             prompt=prompt,
             sampling_param=sampling_param,
@@ -534,6 +537,7 @@ class VideoGenerator:
         prompt = prompt.strip()
         sampling_param = deepcopy(sampling_param)
         output_path = kwargs["output_path"]
+        prompt_embeds = kwargs.get("prompt_embeds")
         sampling_param.prompt = prompt
         # Process negative prompt
         if sampling_param.negative_prompt is not None:
@@ -581,12 +585,8 @@ class VideoGenerator:
             VSA_sparsity=fastvideo_args.VSA_sparsity,
         )
         # Allow precomputed prompt_embeds (e.g. from diffusers) to skip text encoding
-        if kwargs.get("prompt_embeds") is not None:
-            batch.prompt_embeds = (
-                list(kwargs["prompt_embeds"])
-                if isinstance(kwargs["prompt_embeds"], (list, tuple))
-                else [kwargs["prompt_embeds"]]
-            )
+        if prompt_embeds is not None:
+            batch.prompt_embeds = (list(prompt_embeds) if isinstance(prompt_embeds, list | tuple) else [prompt_embeds])
 
         # Run inference
         start_time = time.perf_counter()
