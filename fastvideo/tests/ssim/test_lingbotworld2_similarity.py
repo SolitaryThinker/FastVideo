@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,8 +14,6 @@ from fastvideo.tests.ssim.inference_similarity_utils import (
     resolve_inference_device_reference_folder,
     run_image_to_video_similarity_test,
 )
-from scripts.checkpoint_conversion.convert_lingbotworld2_causal_fast import build_bundle
-
 logger = init_logger(__name__)
 
 REQUIRED_GPUS = 4
@@ -22,7 +22,9 @@ device_reference_folder = resolve_inference_device_reference_folder(logger)
 
 _MODEL_REPO = "robbyant/lingbot-world-v2-14b-causal-fast"
 _MODEL_REVISION = "5c33dd40b213598c418fd25bff30fdbd23fd38a7"
-_DATASET_DIR = Path(__file__).resolve().parents[3] / "examples" / "dataset" / "lingbotworld2"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_DATASET_DIR = _REPO_ROOT / "examples" / "dataset" / "lingbotworld2"
+_CONVERTER = _REPO_ROOT / "scripts" / "checkpoint_conversion" / "convert_lingbotworld2_causal_fast.py"
 
 LINGBOTWORLD2_MODEL_TO_PARAMS = {
     "robbyant__lingbot-world-v2-14b-causal-fast": {
@@ -57,7 +59,10 @@ _PROMPT = (
 def _prepare_model_bundle(root: Path) -> Path:
     source = Path(snapshot_download(repo_id=_MODEL_REPO, revision=_MODEL_REVISION))
     bundle = root / "model"
-    build_bundle(source, bundle)
+    subprocess.run(
+        [sys.executable, str(_CONVERTER), "--source-dir", str(source), "--output-dir", str(bundle)],
+        check=True,
+    )
     return bundle
 
 
