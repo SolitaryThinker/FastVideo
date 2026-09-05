@@ -106,21 +106,21 @@ from fastvideo.models.dits.wanvideo import WanTransformer3DModel as LegacyTransf
 
 assert AggregateConfig is WanVideoConfig
 assert LegacyTransformer is WanTransformer3DModel
-value = pickle.loads(sys.stdin.buffer.read())
-assert type(value) is WanVideoConfig
-assert type(value.arch_config) is WanVideoArchConfig
-assert value == WanVideoConfig()
-assert value.arch_config.hidden_size == 40 * 128
-assert value.arch_config._fsdp_shard_conditions == [is_blocks]
 assert is_blocks('blocks.0', None)
 assert not is_blocks('blocks.0.attn1', None)
-assert pickle.loads(pickle.dumps(value)) == value
+for payload in pickle.load(sys.stdin.buffer):
+    value = pickle.loads(payload)
+    assert type(value) is WanVideoConfig
+    assert type(value.arch_config) is WanVideoArchConfig
+    assert value == WanVideoConfig()
+    assert value.arch_config.hidden_size == 40 * 128
+    assert value.arch_config._fsdp_shard_conditions == [is_blocks]
+    assert pickle.loads(pickle.dumps(value)) == value
 """
-    for payload in (serialized, legacy_serialized):
-        result = subprocess.run(
-            [sys.executable, "-c", script, first_module],
-            input=payload,
-            capture_output=True,
-            timeout=120,
-        )
-        assert result.returncode == 0, result.stdout.decode() + result.stderr.decode()
+    result = subprocess.run(
+        [sys.executable, "-c", script, first_module],
+        input=pickle.dumps((serialized, legacy_serialized)),
+        capture_output=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout.decode() + result.stderr.decode()
