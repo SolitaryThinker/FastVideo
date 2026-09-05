@@ -4,6 +4,11 @@
 
 Two layers of dataclass configs feed every pipeline: **arch configs** (what the model is) and **pipeline configs** (how to run it).
 
+Wan's architecture config is co-located with its transformer in
+`fastvideo/models/wan/config.py`. `models/dits/wanvideo.py` under this directory
+is a compatibility re-export; pipeline configs remain in `pipelines/wan.py`.
+Other model families retain the layout below.
+
 ## Layout
 
 ```
