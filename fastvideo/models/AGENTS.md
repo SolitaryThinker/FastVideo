@@ -2,14 +2,15 @@
 
 **Generated:** 2026-05-02
 
-DiT / VAE / encoder / scheduler / upsampler / audio model classes. **Pre-commit excludes this directory** — yapf/ruff/mypy do not run on commits here. Match neighboring file style manually.
+DiT / VAE / encoder / scheduler / upsampler / audio model classes. **Pre-commit excludes this directory**, except `wan/config.py` and `wan/__init__.py`. Match neighboring file style manually for excluded files.
 
 ## Layout
 
 ```
 models/
+├── wan/                       # Family-local dense Wan transformer + architecture config
 ├── dits/
-│   ├── <model>.py              # Single-file DiT (wanvideo, ltx2, hunyuanvideo, cosmos, ...)
+│   ├── <model>.py              # Single-file DiT (ltx2, hunyuanvideo, cosmos, ...); wanvideo is a shim
 │   ├── hyworld/                # Multi-file DiT family
 │   ├── lingbotworld/           # ditto
 │   └── matrixgame2/            # ditto
@@ -25,6 +26,11 @@ models/
 `loader/component_loader.py` is the central entry point that the pipeline uses
 to instantiate model components from a HF directory. New components plug in
 through `register_*` calls or by extending the `ComponentLoader` mappings.
+
+Wan is the first family-local package: edit `wan/transformer.py` and
+`wan/config.py` together. The old `dits/wanvideo.py` and
+`configs/models/dits/wanvideo.py` paths remain compatibility re-exports. See
+`wan/AGENTS.md`; do not migrate other components as part of a Wan edit.
 
 ## Adding a Model Component (DiT / VAE / Encoder)
 

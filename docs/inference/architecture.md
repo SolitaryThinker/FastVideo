@@ -23,7 +23,7 @@ to FastVideo model classes. Two discovery mechanisms:
    `fastvideo/models/` and parses each `.py` file's AST looking for an
    `EntryClass` variable assignment. Discovered models take priority over
    hardcoded entries. For example,
-   `fastvideo/models/dits/wanvideo.py` exports
+   `fastvideo/models/wan/transformer.py` exports
    `EntryClass = WanTransformer3DModel`.
 
 Both feed into a unified `_FAST_VIDEO_MODELS` dict, which populates the

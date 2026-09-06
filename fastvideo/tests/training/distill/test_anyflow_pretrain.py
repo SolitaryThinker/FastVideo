@@ -90,22 +90,6 @@ def test_embedder_default_path_no_delta_module() -> None:
     assert emb.delta_embedder is None
 
 
-def test_embedder_default_path_is_bit_identical_to_legacy() -> None:
-    """With r_embedder=False, forward output must match the legacy single-t path
-    (no r_timestep kwarg, no extra computation)."""
-    torch.manual_seed(0)
-    emb = _make_embedder(r_embedder=False)
-    t = torch.randint(0, 1000, (2, ), dtype=torch.long)
-    txt = torch.randn(2, 4, 16)
-    temb_a, proj_a, _, _ = emb(t, txt)
-    # Calling without r_timestep again must be deterministic-equal.
-    temb_b, proj_b, _, _ = emb(t, txt)
-    torch.testing.assert_close(temb_a, temb_b)
-    torch.testing.assert_close(proj_a, proj_b)
-    assert temb_a.shape == (2, 32)
-    assert proj_a.shape == (2, 32 * 6)
-
-
 def test_embedder_enabled_without_r_timestep_is_bit_identical_to_legacy() -> None:
     """Even with r_embedder=True, if r_timestep is None at call time the
     forward must skip the delta path entirely so existing call sites that
@@ -120,6 +104,8 @@ def test_embedder_enabled_without_r_timestep_is_bit_identical_to_legacy() -> Non
     temb_dual, proj_dual, _, _ = emb_dual(t, txt)  # No r_timestep.
     torch.testing.assert_close(temb_legacy, temb_dual)
     torch.testing.assert_close(proj_legacy, proj_dual)
+    assert temb_legacy.shape == (2, 32)
+    assert proj_legacy.shape == (2, 32 * 6)
 
 
 def test_embedder_gated_fusion_formula() -> None:

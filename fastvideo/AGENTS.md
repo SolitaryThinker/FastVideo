@@ -26,7 +26,7 @@ fastvideo/
 ├── entrypoints/     # cli/, openai/, streaming/, video_generator.py
 ├── hooks/           # Runtime hook system for pipelines
 ├── layers/          # Tensor-parallel linears + attention wrappers (port targets)
-├── models/          # DiT / VAE / encoder / scheduler / loader (pre-commit excluded)
+├── models/          # Components + Wan family-local package (mostly pre-commit excluded)
 ├── pipelines/       # basic/<model>/, preprocess/, stages/, training/
 ├── platforms/       # CUDA/ROCm capability + AttentionBackendEnum
 ├── third_party/     # Vendored externals (lint excluded; do not reformat)
@@ -46,6 +46,7 @@ fastvideo/
 |------|----------|
 | Add a new pipeline class | `pipelines/basic/<model>/` + `configs/pipelines/<model>.py` + register in `registry.py` |
 | Add a new model component | `models/<role>/<model>.py` + `configs/models/<role>/<model>.py` |
+| Edit Wan's dense transformer or arch config | `models/wan/transformer.py` + `models/wan/config.py`; old paths are compatibility shims |
 | Wire an existing model into a new pipeline | `pipelines/basic/<model>/presets.py` + reuse stages from `pipelines/stages/` |
 | Add a converter | `scripts/checkpoint_conversion/<model>_to_*.py` (separate dir, separate AGENTS.md) |
 | Add an attention backend | `attention/backends/<name>.py` + register in selector |
@@ -65,3 +66,6 @@ These dirs are listed in `.pre-commit-config.yaml` `exclude`:
 - `fastvideo/third_party/`, `fastvideo/dataset/`, `fastvideo/models/`
 
 Editing files there will NOT trigger yapf/ruff/mypy/codespell. Format manually if a sibling file shows clear style; do not introduce new violations.
+
+Exception: `models/wan/config.py` and `models/wan/__init__.py` are checked, so
+the family-local config retains its prior lint coverage.

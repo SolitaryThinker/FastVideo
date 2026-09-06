@@ -43,6 +43,8 @@ FastVideo maps a Diffusers-style repo into a pipeline like:
 - `fastvideo/models/*`: model implementations (DiT, VAE, encoders, upsamplers).
 - `fastvideo/configs/models/*`: arch configs and `param_names_mapping` for
   weight name translation.
+- `fastvideo/models/wan/`: Wan's dense transformer and architecture config
+  live together. The old Wan modules remain compatibility re-exports.
 - `fastvideo/configs/pipelines/*`: pipeline wiring (component classes + names).
 - `fastvideo/api/sampling_param.py`: runtime sampling parameters.
 - `fastvideo/pipelines/basic/*`: end-to-end pipeline logic built from stages.
@@ -209,7 +211,7 @@ class OfficialWanTransformer(torch.nn.Module):
     def forward(self, x):
         return self.patch_embedding(x)
 
-# FastVideo model (simplified) in fastvideo/models/dits/wanvideo.py
+# FastVideo model (simplified) in fastvideo/models/wan/transformer.py
 class PatchEmbed(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -227,7 +229,7 @@ class WanTransformer3DModel(torch.nn.Module):
         return self.patch_embedding(x)
 
 # Mapping defined in a config (simplified; see the real mapping in
-# fastvideo/configs/models/dits/wanvideo.py)
+# fastvideo/models/wan/config.py)
 param_names_mapping = {
     r"^patch_embedding\.(.*)$": r"patch_embedding.proj.\1",
     r"^blocks\.(\d+)\.attn1\.to_q\.(.*)$": r"blocks.\1.to_q.\2",
@@ -275,7 +277,7 @@ Mapping steps:
   - Instantiate the FastVideo DiT (`WanTransformer3DModel`) and compare
     its `state_dict().keys()` to the official keys.
   - Update `param_names_mapping` in
-    fastvideo/configs/models/dits/wanvideo.py to resolve missing/unexpected keys.
+    fastvideo/models/wan/config.py to resolve missing/unexpected keys.
   - Use `load_state_dict(strict=False)` during iteration to surface mismatches.
 ```
 
@@ -466,7 +468,8 @@ The Wan2.1 T2V 1.3B Diffusers pipeline is a good “standard” example for
 FastVideo integration.
 
 1. Verify model config + mapping.
-   - DiT mapping: `fastvideo/configs/models/dits/wanvideo.py`
+   - DiT: `fastvideo/models/wan/transformer.py`
+   - DiT mapping: `fastvideo/models/wan/config.py`
    - VAE: `fastvideo/models/vaes/wanvae.py`
    - Text encoder: `fastvideo/models/encoders/t5.py`
 

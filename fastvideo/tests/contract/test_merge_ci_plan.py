@@ -7,6 +7,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PLANNER_PATH = REPO_ROOT / ".github/scripts/plan_merge_ci.py"
 SPEC = importlib.util.spec_from_file_location("plan_merge_ci", PLANNER_PATH)
@@ -28,13 +30,47 @@ def test_docs_only_merge_adds_no_gpu_lanes():
     assert plan.encoded_ssim_tests() == "none"
 
 
-def test_model_family_change_selects_focused_golden_and_ssim():
-    plan = PLAN_MERGE_CI.classify_paths(["fastvideo/models/dits/wanvideo.py"])
+@pytest.mark.parametrize("path", [
+    "fastvideo/models/dits/wanvideo.py",
+    "fastvideo/configs/models/dits/wanvideo.py",
+    "fastvideo/models/wan/__init__.py",
+    "fastvideo/models/wan/config.py",
+    "fastvideo/models/wan/transformer.py",
+])
+def test_model_family_change_selects_focused_golden_and_ssim(path):
+    plan = PLAN_MERGE_CI.classify_paths([path])
 
     assert plan.encoded_lanes() == ",golden-gate,ssim,"
     assert plan.encoded_golden_tests() == "test_wan_t2v.py"
     assert plan.encoded_ssim_tests() == (
         "test_causal_similarity.py,test_wan_i2v_similarity.py,test_wan_t2v_similarity.py")
+
+
+def test_wan_family_relocation_keeps_shared_registry_coverage():
+    plan = PLAN_MERGE_CI.classify_paths([
+        "fastvideo/models/dits/wanvideo.py",
+        "fastvideo/configs/models/dits/wanvideo.py",
+        "fastvideo/models/wan/__init__.py",
+        "fastvideo/models/wan/config.py",
+        "fastvideo/models/wan/transformer.py",
+        "fastvideo/models/wan/AGENTS.md",
+        "fastvideo/models/registry.py",
+        "fastvideo/AGENTS.md",
+        "fastvideo/models/AGENTS.md",
+        "fastvideo/configs/AGENTS.md",
+        "fastvideo/tests/loader/test_wan_family_imports.py",
+        "fastvideo/tests/contract/test_merge_ci_plan.py",
+        ".pre-commit-config.yaml",
+        "docs/design/overview.md",
+        "docs/inference/architecture.md",
+        "docs/contributing/coding_agents.md",
+    ])
+
+    assert plan.encoded_lanes() == ",golden-gate,ssim,"
+    assert plan.encoded_golden_tests() == "all"
+    assert plan.encoded_ssim_tests() == (
+        "test_causal_similarity.py,test_flux_t2i_similarity.py,"
+        "test_wan_i2v_similarity.py,test_wan_t2v_similarity.py")
 
 
 def test_flux2_change_does_not_pull_unrelated_flux1_quality_tests():
