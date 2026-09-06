@@ -6,14 +6,15 @@ This module contains an implementation of the Wan video diffusion pipeline
 using the modular pipeline architecture.
 """
 
+from fastvideo.pipelines.basic.wan.stages.dmd import DmdDenoisingStage
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
 from fastvideo.models.schedulers.scheduling_flow_match_euler_discrete import (FlowMatchEulerDiscreteScheduler)
 from fastvideo.pipelines import ComposedPipelineBase, LoRAPipeline
 
 # isort: off
-from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage, DmdDenoisingStage, InputValidationStage,
-                                        LatentPreparationStage, TextEncodingStage, TimestepPreparationStage)
+from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage, InputValidationStage, LatentPreparationStage,
+                                        TextEncodingStage, TimestepPreparationStage)
 # isort: on
 
 logger = init_logger(__name__)
@@ -51,9 +52,11 @@ class WanDMDPipeline(LoRAPipeline, ComposedPipelineBase):
                                                     transformer=self.get_module("transformer", None),
                                                     use_btchw_layout=True))
 
+        # DMD needs the complete training-noise table, separate from the
+        # inference scheduler mutated by TimestepPreparationStage.
         self.add_stage(stage_name="denoising_stage",
                        stage=DmdDenoisingStage(transformer=self.get_module("transformer"),
-                                               scheduler=self.get_module("scheduler")))
+                                               scheduler=FlowMatchEulerDiscreteScheduler(shift=8.0)))
 
         self.add_stage(stage_name="decoding_stage", stage=DecodingStage(vae=self.get_module("vae")))
 

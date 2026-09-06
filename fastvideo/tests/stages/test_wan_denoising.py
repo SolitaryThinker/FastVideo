@@ -5,71 +5,20 @@ The real UniPC scheduler exercises the complete 50-step loop. These tests cover
 orchestration, not transformer numerics; component goldens cover real weights.
 """
 
-from types import SimpleNamespace
-
 import pytest
 import torch
 
 from fastvideo.models.schedulers.scheduling_flow_unipc_multistep import FlowUniPCMultistepScheduler
 from fastvideo.tests.stages._denoising_fixtures import (
-    NullProgressBar, TinyDenoiser, TinyScheduler, _patch_denoising_module, _tiny_args, _tiny_batch,
+    NullProgressBar, RecordingDenoiser, TinyScheduler, TinyVAE, _args, _batch, _patch_denoising_module,
 )
 
 
-class RecordingDenoiser(TinyDenoiser):
-
-    def __init__(self, offset=0.0):
-        super().__init__()
-        self.offset = offset
-        self.inputs = []
-
-    def forward(self, hidden_states, prompt_embeds, timestep, guidance=None, encoder_hidden_states_image=None):
-        self.inputs.append((hidden_states.clone(), timestep.clone()))
-        prompt = prompt_embeds[0].float().mean()
-        self.calls.append("uncond" if prompt < 0 else "cond")
-        time = timestep.float().reshape(hidden_states.shape[0], -1).mean(dim=1).reshape(-1, 1, 1, 1, 1)
-        return hidden_states[:, :2].float() * 0.125 + prompt * 0.25 + time * 0.0001 + self.offset
-
-
-class TinyVAE(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-        self.weight = torch.nn.Parameter(torch.zeros(()))
-        self.shift_factor = torch.tensor([0.25, -0.25]).reshape(1, 2, 1, 1, 1)
-        self.scaling_factor = torch.tensor([2.0, 0.5]).reshape(1, 2, 1, 1, 1)
-        self.encode_calls = 0
-
-    def encode(self, image):
-        self.encode_calls += 1
-        return SimpleNamespace(mean=torch.full((1, 2, 1, 2, 4), 0.5, dtype=torch.float32))
-
-
-def _batch(steps=4, cfg=True):
-    batch = _tiny_batch()
-    batch.latents = torch.linspace(-0.5, 0.5, 48).reshape(1, 2, 3, 2, 4)
-    batch.num_inference_steps = steps
-    batch.timesteps = torch.linspace(1000, 1, steps)
-    batch.do_classifier_free_guidance = cfg
-    batch.num_frames, batch.height, batch.width = 9, 16, 32
-    batch.raw_latent_shape = tuple(batch.latents.shape)
-    batch.return_trajectory_latents = True
-    return batch
-
-
-def _args():
-    args = _tiny_args()
-    args.vae_cpu_offload = True
-    arch = SimpleNamespace(patch_size=(1, 2, 2))
-    args.pipeline_config.dit_config.arch_config = arch
-    args.pipeline_config.vae_config = SimpleNamespace(
-        arch_config=SimpleNamespace(scale_factor_temporal=4, scale_factor_spatial=8))
-    return args
-
-
-def _stage(monkeypatch, model, scheduler, *, second=None, vae=None, gate="1.0"):
-    module, logger = _patch_denoising_module(monkeypatch, gate)
-    stage = module.DenoisingStage(model, scheduler, transformer_2=second, vae=vae)
+def _stage(monkeypatch, model, scheduler, *, second=None, gate="1.0"):
+    _, logger = _patch_denoising_module(monkeypatch, gate)
+    from fastvideo.pipelines.basic.wan.stages import denoising
+    monkeypatch.setattr(denoising, "get_local_torch_device", lambda: torch.device("cpu"))
+    stage = denoising.WanDenoisingStage(model, scheduler, transformer_2=second)
     stage.progress_bar = lambda **kwargs: NullProgressBar()
     return stage, logger
 
@@ -132,7 +81,10 @@ def test_wan_conditioning_layout_and_first_frame(monkeypatch, kind, channels):
     args.pipeline_config.ti2v_task = kind == "ti2v"
     if kind == "ti2v":
         batch.pil_image = torch.zeros(1, 3, 1, 16, 32)
-    stage, _ = _stage(monkeypatch, model, TinyScheduler(), vae=vae)
+    stage, _ = _stage(monkeypatch, model, TinyScheduler())
+    from fastvideo.pipelines.basic.wan.stages import conditioning
+    monkeypatch.setattr(conditioning, "get_local_torch_device", lambda: torch.device("cpu"))
+    conditioning.WanFirstFrameEncodingStage(vae).forward(batch, args)
     result = stage.forward(batch, args)
     assert all(x.shape[1] == channels for x, _ in model.inputs)
     assert result.latents.shape == (1, 2, 3, 2, 4)
