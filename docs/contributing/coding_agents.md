@@ -43,7 +43,7 @@ FastVideo maps a Diffusers-style repo into a pipeline like:
 - `fastvideo/models/*`: model implementations (DiT, VAE, encoders, upsamplers).
 - `fastvideo/configs/models/*`: arch configs and `param_names_mapping` for
   weight name translation.
-- `fastvideo/models/wan/`: Wan's dense transformer and architecture config
+- `fastvideo/models/wan/`: Wan's dense transformer, VAE, and component configs
   live together. The old Wan modules remain compatibility re-exports.
 - `fastvideo/configs/pipelines/*`: pipeline wiring (component classes + names).
 - `fastvideo/api/sampling_param.py`: runtime sampling parameters.
@@ -470,7 +470,8 @@ FastVideo integration.
 1. Verify model config + mapping.
    - DiT: `fastvideo/models/wan/transformer.py`
    - DiT mapping: `fastvideo/models/wan/config.py`
-   - VAE: `fastvideo/models/vaes/wanvae.py`
+   - VAE: `fastvideo/models/wan/vae.py`
+   - VAE config: `fastvideo/models/wan/vae_config.py`
    - Text encoder: `fastvideo/models/encoders/t5.py`
 
 2. Parity test the core components.

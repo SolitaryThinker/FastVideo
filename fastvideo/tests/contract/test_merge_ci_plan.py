@@ -36,6 +36,8 @@ def test_docs_only_merge_adds_no_gpu_lanes():
     "fastvideo/models/wan/__init__.py",
     "fastvideo/models/wan/config.py",
     "fastvideo/models/wan/transformer.py",
+    "fastvideo/models/wan/vae.py",
+    "fastvideo/models/wan/vae_config.py",
 ])
 def test_model_family_change_selects_focused_golden_and_ssim(path):
     plan = PLAN_MERGE_CI.classify_paths([path])
@@ -53,12 +55,18 @@ def test_wan_family_relocation_keeps_shared_registry_coverage():
         "fastvideo/models/wan/__init__.py",
         "fastvideo/models/wan/config.py",
         "fastvideo/models/wan/transformer.py",
+        "fastvideo/models/vaes/wanvae.py",
+        "fastvideo/configs/models/vaes/wanvae.py",
+        "fastvideo/models/wan/vae.py",
+        "fastvideo/models/wan/vae_config.py",
         "fastvideo/models/wan/AGENTS.md",
         "fastvideo/models/registry.py",
         "fastvideo/AGENTS.md",
         "fastvideo/models/AGENTS.md",
         "fastvideo/configs/AGENTS.md",
         "fastvideo/tests/loader/test_wan_family_imports.py",
+        "fastvideo/tests/vaes/test_wan_vae.py",
+        "fastvideo/tests/vaes/test_wan_vae_compile.py",
         "fastvideo/tests/contract/test_merge_ci_plan.py",
         ".pre-commit-config.yaml",
         "docs/design/overview.md",
@@ -128,8 +136,13 @@ def test_performance_implementation_selects_only_performance_lane():
     assert plan.encoded_lanes() == ",performance,"
 
 
-def test_shared_runtime_change_gets_focused_quality_smoke_not_every_lane():
-    plan = PLAN_MERGE_CI.classify_paths(["fastvideo/registry.py"])
+@pytest.mark.parametrize("path", [
+    "fastvideo/registry.py",
+    "fastvideo/models/vaes/wanvae.py",
+    "fastvideo/configs/models/vaes/wanvae.py",
+])
+def test_shared_runtime_change_gets_focused_quality_smoke_not_every_lane(path):
+    plan = PLAN_MERGE_CI.classify_paths([path])
 
     assert plan.encoded_lanes() == ",golden-gate,ssim,"
     assert plan.encoded_golden_tests() == "all"
