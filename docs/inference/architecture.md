@@ -256,6 +256,16 @@ Specialized variants: `CausalDenoisingStage`, `LTX2DenoisingStage`,
 `SRDenoisingStage`, `LTX2AudioDecodingStage`, `SD35ConditioningStage`,
 `LTX2TextEncodingStage`, `LTX2LatentPreparationStage`.
 
+Wan owns its sampling recipes under `basic/wan/stages/`. `WanDenoisingStage`
+specializes input packing, expert selection, timesteps, and first-frame
+restoration around the shared dense loop. `WanFirstFrameEncodingStage`
+produces normalized `ForwardBatch.first_frame_latent` before sampling; the
+sampler no longer executes a VAE. Dense DMD and the two causal samplers have
+family-local implementations and explicit scheduler ownership. Standard and
+DMD causal sampling share cache allocation, not their sampling algorithm.
+Legacy imports from `stages/` remain compatibility aliases. Sampling invariants
+also live beside the code in `fastvideo/pipelines/basic/wan/AGENTS.md`.
+
 ### Verification System (`fastvideo/pipelines/stages/validators.py`)
 
 `StageValidators` (aliased as `V`) provides static validators:

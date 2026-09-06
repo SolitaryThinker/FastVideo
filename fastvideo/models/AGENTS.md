@@ -8,7 +8,7 @@ DiT / VAE / encoder / scheduler / upsampler / audio model classes. **Pre-commit 
 
 ```
 models/
-├── wan/                       # Family-local dense Wan transformer, VAE, and configs
+├── wan/                       # Family-local dense/causal Wan transformers, VAE, and configs
 ├── dits/
 │   ├── <model>.py              # Single-file DiT (ltx2, hunyuanvideo, cosmos, ...); wanvideo is a shim
 │   ├── hyworld/                # Multi-file DiT family
@@ -28,8 +28,9 @@ to instantiate model components from a HF directory. New components plug in
 through `register_*` calls or by extending the `ComponentLoader` mappings.
 
 Wan is the first family-local package: edit `wan/transformer.py` with
-`wan/config.py`, or `wan/vae.py` with `wan/vae_config.py`. The old
-`dits/wanvideo.py`, `vaes/wanvae.py`, and matching `configs/models/` paths remain
+`wan/config.py`, `wan/causal_transformer.py`, or `wan/vae.py` with
+`wan/vae_config.py`. The old `dits/wanvideo.py`, `dits/causal_wanvideo.py`,
+`vaes/wanvae.py`, and matching `configs/models/` paths remain
 compatibility re-exports. Shared encoders and VAE utilities stay in their current
 locations. See `wan/AGENTS.md`; do not migrate other components as part of a Wan edit.
 
