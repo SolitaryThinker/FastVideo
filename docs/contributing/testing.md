@@ -10,6 +10,7 @@ slash-command mappings, and workflow ownership live in
 |---|---|---|
 | Unit tests | `fastvideo/tests/api`, `fastvideo/tests/dataset`, `fastvideo/tests/entrypoints`, `fastvideo/tests/workflow`, CPU-safe `fastvideo/tests/train` subsets | Validate individual functions, APIs, contracts, and lightweight workflows. |
 | Component tests | `fastvideo/tests/encoders`, `fastvideo/tests/transformers`, `fastvideo/tests/vaes` | Validate loading and basic behavior for model components. |
+| Golden gates | `fastvideo/tests/golden_gate` | Compare small, deterministic component outputs exactly against device/runtime-matched reference tensors. |
 | Train framework tests | `fastvideo/tests/train/models`, `fastvideo/tests/train/methods` | Exercise the new `fastvideo/train/` framework on real checkpoints and tiny synthetic batches. |
 | SSIM tests | `fastvideo/tests/ssim` | Compare generated videos against references to catch visual regressions. |
 | Training tests | `fastvideo/tests/training` | Validate legacy training loops, LoRA, distillation, self-forcing, and VSA behavior. |
@@ -20,14 +21,36 @@ slash-command mappings, and workflow ownership live in
 
 ## Running Tests Locally
 
-Run the narrowest useful suite while iterating:
+Start with the cheapest checks that cover the changed behavior, and stop on a
+failure before starting heavier dependent checks:
+
+1. Run pre-commit on changed files and focused import, config, and contract tests.
+2. Run the smallest matching component golden gate. Prefer one GPU, tiny fixed
+   inputs, cached component weights, and direct tensor comparisons over renders.
+3. Run focused component parity or default SSIM when the golden does not cover
+   the changed behavior, such as VAE normalization or pipeline wiring.
+4. Run full-quality renders or broad suites when required by the change, an
+   explicit request, or CI policy, rather than on every edit.
+
+A golden must cover the component being changed. Wan's existing golden checks
+transformer block 0; it does not cover the VAE. Until a Wan VAE golden exists,
+use its focused encode/decode parity test. Keep independent-reference parity
+and end-to-end coverage for changes outside a golden's tested boundary.
+
+Use the golden's matching GPU, dtype, backend, and runtime. A missing reference
+or environment mismatch is not a pass. Do not replace a reference with the
+candidate output just to clear a failure. For a relocation, the unchanged
+parent is the baseline; two imports of the same class are not numerical proof.
+
+This is the developer iteration order, not a change to required CI checks or
+their scheduling. See [CI/CD Architecture](ci_architecture.md) for current policy.
+
+Examples of focused checks:
 
 ```bash
-pytest tests/
-pytest fastvideo/tests/ -v
-pytest fastvideo/tests/encoders -vs
-pytest fastvideo/tests/transformers -vs
-pytest fastvideo/tests/vaes -vs
+pytest fastvideo/tests/loader/test_wan_family_imports.py -q
+pytest fastvideo/tests/golden_gate/test_wan_t2v.py -q
+pytest fastvideo/tests/vaes/test_wan_vae.py -q
 ```
 
 GPU-heavy suites need the right hardware, credentials, local caches, and

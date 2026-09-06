@@ -113,7 +113,7 @@ _VAE_MODELS = {
     "AutoencoderKLCausal3D": ("vaes", "gamecraftvae", "GameCraftVAE"),
     "AutoencoderKLHYWorld": ("vaes", "hyworldvae", "AutoencoderKLHYWorld"),
     "AutoencoderKLHunyuanVideo15": ("vaes", "hunyuan15vae", "AutoencoderKLHunyuanVideo15"),
-    "AutoencoderKLWan": ("vaes", "wanvae", "AutoencoderKLWan"),
+    "AutoencoderKLWan": ("wan", "vae", "AutoencoderKLWan"),
     "LingBotWorld2WanVAE": ("vaes", "lingbotworld2_wanvae", "LingBotWorld2WanVAE"),
     "AutoencoderKL": ("vaes", "autoencoder_kl", "AutoencoderKL"),
     "AutoencoderKLGen3CTokenizer": ("vaes", "gen3c_tokenizer_vae", "AutoencoderKLGen3CTokenizer"),

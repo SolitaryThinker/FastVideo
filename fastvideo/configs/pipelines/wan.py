@@ -9,9 +9,8 @@ from fastvideo.configs.models.dits import WanVideoConfig
 from fastvideo.configs.models.dits.wanvideo import WanVideoArchConfig
 from fastvideo.configs.models.encoders import (BaseEncoderOutput, CLIPVisionConfig, T5Config,
                                                WAN2_1ControlCLIPVisionConfig)
-from fastvideo.configs.models.vaes import WanVAEConfig
-from fastvideo.configs.models.vaes.wanvae import WanVAEArchConfig
 from fastvideo.configs.pipelines.base import PipelineConfig
+from fastvideo.models.wan.vae_config import WanVAEArchConfig, WanVAEConfig
 
 
 def t5_postprocess_text(outputs: BaseEncoderOutput) -> torch.Tensor:

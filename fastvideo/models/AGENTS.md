@@ -2,19 +2,19 @@
 
 **Generated:** 2026-05-02
 
-DiT / VAE / encoder / scheduler / upsampler / audio model classes. **Pre-commit excludes this directory**, except `wan/config.py` and `wan/__init__.py`. Match neighboring file style manually for excluded files.
+DiT / VAE / encoder / scheduler / upsampler / audio model classes. **Pre-commit excludes this directory**, except `wan/config.py`, `wan/vae_config.py`, and `wan/__init__.py`. Match neighboring file style manually for excluded files.
 
 ## Layout
 
 ```
 models/
-├── wan/                       # Family-local dense Wan transformer + architecture config
+├── wan/                       # Family-local dense Wan transformer, VAE, and configs
 ├── dits/
 │   ├── <model>.py              # Single-file DiT (ltx2, hunyuanvideo, cosmos, ...); wanvideo is a shim
 │   ├── hyworld/                # Multi-file DiT family
 │   ├── lingbotworld/           # ditto
 │   └── matrixgame2/            # ditto
-├── vaes/                       # AutoencoderKL variants per model family
+├── vaes/                       # AutoencoderKL variants + shared utilities; wanvae is a shim
 ├── encoders/                   # T5, CLIP, Llama, Qwen2.5, Gemma, SigLIP, Reason1, audio conditioner
 ├── schedulers/                 # FlowMatch / EulerDiscrete / DPM custom schedulers
 ├── upsamplers/                 # Hunyuan15 super-resolution
@@ -27,10 +27,11 @@ models/
 to instantiate model components from a HF directory. New components plug in
 through `register_*` calls or by extending the `ComponentLoader` mappings.
 
-Wan is the first family-local package: edit `wan/transformer.py` and
-`wan/config.py` together. The old `dits/wanvideo.py` and
-`configs/models/dits/wanvideo.py` paths remain compatibility re-exports. See
-`wan/AGENTS.md`; do not migrate other components as part of a Wan edit.
+Wan is the first family-local package: edit `wan/transformer.py` with
+`wan/config.py`, or `wan/vae.py` with `wan/vae_config.py`. The old
+`dits/wanvideo.py`, `vaes/wanvae.py`, and matching `configs/models/` paths remain
+compatibility re-exports. Shared encoders and VAE utilities stay in their current
+locations. See `wan/AGENTS.md`; do not migrate other components as part of a Wan edit.
 
 ## Adding a Model Component (DiT / VAE / Encoder)
 

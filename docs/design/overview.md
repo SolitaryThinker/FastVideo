@@ -11,7 +11,7 @@ FastVideo maps a Diffusers-style repo into a pipeline like this:
 - `fastvideo/models/*`: model implementations (DiT, VAE, encoders, upsamplers).
 - `fastvideo/configs/models/*`: arch configs and `param_names_mapping` for
   weight name translation.
-- `fastvideo/models/wan/`: Wan's dense transformer and architecture config
+- `fastvideo/models/wan/`: Wan's dense transformer, VAE, and component configs
   together; the old Wan component/config modules remain compatibility imports.
 - `fastvideo/configs/pipelines/*`: pipeline wiring (component classes + names).
 - `fastvideo/api/sampling_param.py`: runtime sampling parameters.
@@ -50,8 +50,10 @@ runtime parameters consistent:
 
 - `fastvideo/configs/models/`: architecture definitions, layer shapes, and
   `param_names_mapping` rules for key renaming.
-- `fastvideo/models/wan/config.py`: Wan's architecture and mapping rules,
+- `fastvideo/models/wan/config.py`: Wan's transformer architecture and mapping rules,
   co-located with `transformer.py`.
+- `fastvideo/models/wan/vae_config.py`: Wan's VAE architecture and runtime
+  settings, co-located with `vae.py`.
 - `fastvideo/configs/pipelines/`: pipeline wiring and required components.
 - `fastvideo/api/sampling_param.py`: sampling parameters (steps, frames,
   guidance scale, resolution, fps). Defaults come from profiles in
@@ -144,7 +146,8 @@ How this maps to FastVideo:
 - `WanPipeline` -> `fastvideo/pipelines/basic/wan/wan_pipeline.py`
 - `WanTransformer3DModel` -> `fastvideo/models/wan/transformer.py`
 - `WanVideoConfig` -> `fastvideo/models/wan/config.py`
-- `AutoencoderKLWan` -> `fastvideo/models/vaes/wanvae.py`
+- `AutoencoderKLWan` -> `fastvideo/models/wan/vae.py`
+- `WanVAEConfig` -> `fastvideo/models/wan/vae_config.py`
 - `UMT5EncoderModel` -> `fastvideo/models/encoders/t5.py`
 - `T5TokenizerFast` -> loaded via HF in `fastvideo/models/loader/`
 - `UniPCMultistepScheduler` -> loaded via Diffusers scheduler utilities
@@ -164,7 +167,7 @@ How this maps to FastVideo:
 ## Model components
 
 - DiT models: `fastvideo/models/dits/`; dense Wan: `fastvideo/models/wan/`
-- VAEs: `fastvideo/models/vaes/`
+- VAEs: `fastvideo/models/vaes/`; Wan: `fastvideo/models/wan/vae.py`
 - Text/image encoders: `fastvideo/models/encoders/`
 - Schedulers: `fastvideo/models/schedulers/`
 - Upsamplers: `fastvideo/models/upsamplers/`
