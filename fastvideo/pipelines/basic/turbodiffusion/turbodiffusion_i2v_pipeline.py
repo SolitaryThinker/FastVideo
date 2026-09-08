@@ -17,8 +17,9 @@ from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
 from fastvideo.models.schedulers.scheduling_rcm import RCMScheduler
 from fastvideo.pipelines import ComposedPipelineBase, LoRAPipeline
+from fastvideo.pipelines.basic.wan.stages.sampling import WanTimestepPreparationStage
 from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage, ImageVAEEncodingStage, InputValidationStage,
-                                        LatentPreparationStage, TextEncodingStage, TimestepPreparationStage)
+                                        LatentPreparationStage, TextEncodingStage)
 
 logger = init_logger(__name__)
 
@@ -52,7 +53,7 @@ class TurboDiffusionI2VPipeline(LoRAPipeline, ComposedPipelineBase):
         self.add_stage(stage_name="conditioning_stage", stage=ConditioningStage())
 
         self.add_stage(stage_name="timestep_preparation_stage",
-                       stage=TimestepPreparationStage(scheduler=self.get_module("scheduler")))
+                       stage=WanTimestepPreparationStage(scheduler=self.get_module("scheduler")))
 
         self.add_stage(stage_name="latent_preparation_stage",
                        stage=LatentPreparationStage(scheduler=self.get_module("scheduler"),

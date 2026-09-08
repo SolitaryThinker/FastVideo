@@ -13,9 +13,9 @@ from fastvideo.pipelines.composed_pipeline_base import ComposedPipelineBase
 from fastvideo.pipelines.lora_pipeline import LoRAPipeline
 
 # isort: off
+from fastvideo.pipelines.basic.wan.stages.sampling import WanTimestepPreparationStage
 from fastvideo.pipelines.stages import (RefImageEncodingStage, ConditioningStage, DecodingStage, VideoVAEEncodingStage,
-                                        InputValidationStage, LatentPreparationStage, TextEncodingStage,
-                                        TimestepPreparationStage)
+                                        InputValidationStage, LatentPreparationStage, TextEncodingStage)
 # isort: on
 from fastvideo.models.schedulers.scheduling_flow_unipc_multistep import (FlowUniPCMultistepScheduler)
 
@@ -53,7 +53,7 @@ class WanVideoToVideoPipeline(LoRAPipeline, ComposedPipelineBase):
         self.add_stage(stage_name="conditioning_stage", stage=ConditioningStage())
 
         self.add_stage(stage_name="timestep_preparation_stage",
-                       stage=TimestepPreparationStage(scheduler=self.get_module("scheduler")))
+                       stage=WanTimestepPreparationStage(scheduler=self.get_module("scheduler")))
 
         self.add_stage(stage_name="latent_preparation_stage",
                        stage=LatentPreparationStage(scheduler=self.get_module("scheduler"),

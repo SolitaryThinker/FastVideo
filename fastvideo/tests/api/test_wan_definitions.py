@@ -153,6 +153,9 @@ def test_component_precision_and_sampling_defaults(config_name, flow_shift, dmd_
     assert first.text_encoder_precisions == ("fp32",)
     assert first.vae_config.load_encoder is load_encoder
     assert first.vae_config.load_decoder is True
+    from fastvideo.models.wan.vae_config import WanVAEConfig, WanVAEArchConfig
+    assert type(first.vae_config) is WanVAEConfig
+    assert type(first.vae_config.arch_config) is WanVAEArchConfig
     # Each request/instance still gets independent mutable component configs.
     first.vae_config.load_encoder = not load_encoder
     assert second.vae_config.load_encoder is load_encoder
@@ -161,6 +164,25 @@ def test_component_precision_and_sampling_defaults(config_name, flow_shift, dmd_
     if first.dmd_denoising_steps is not None:
         first.dmd_denoising_steps.append(1)
         assert second.dmd_denoising_steps == dmd_steps
+
+
+def test_lucy_edit_channel_layout_and_dispatch():
+    from fastvideo.fastvideo_args import WorkloadType
+    from fastvideo.pipelines.basic.wan.lucy_edit_pipeline import LucyEditPipeline
+    from fastvideo.pipelines.pipeline_registry import PipelineType, get_pipeline_registry
+
+    config = pipeline_config.LucyEditDevConfig()
+    assert config.lucy_edit_task and not config.ti2v_task
+    assert config.dit_config.arch_config.out_channels == config.vae_config.arch_config.z_dim == 48
+    assert config.dit_config.arch_config.in_channels == 96
+    preset = get_preset("lucy_edit_dev", "wan")
+    assert {name: preset.defaults[name] for name in
+            ("height", "width", "num_frames", "fps", "guidance_scale", "negative_prompt")} == {
+                "height": 480, "width": 832, "num_frames": 81, "fps": 24,
+                "guidance_scale": 5.0, "negative_prompt": "",
+            }
+    pipelines = get_pipeline_registry(PipelineType.BASIC)
+    assert pipelines.resolve_pipeline_cls("LucyEditPipeline", PipelineType.BASIC, WorkloadType.T2V) is LucyEditPipeline
 
 
 def test_definitions_are_complete_data_only_and_reference_existing_configs():

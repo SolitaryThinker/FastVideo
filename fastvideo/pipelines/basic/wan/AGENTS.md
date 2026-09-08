@@ -9,6 +9,9 @@ encoders stay shared; the Wan VAE video encoder and decoder live together in
 
 ## Sampling boundaries
 
+- `stages/sampling.py`: copy scheduler templates per request, share the prepared
+  schedule with latent preparation, and release history after denoising (also
+  on errors). Dense DMD must use its separate full training-noise table.
 - `stages/conditioning.py`: encode and normalize `first_frame_latent` before
   dense TI2V or causal DMD sampling. Clear it for each request. Preserve VAE
   precision, normalization order, and device restoration.
@@ -22,7 +25,8 @@ encoders stay shared; the Wan VAE video encoder and decoder live together in
   table when converting noise to video and adding noise.
 - `stages/causal_denoising.py`: standard and DMD causal samplers share cache
   allocation, not a sampling-loop inheritance chain. Reset UniPC per block and
-  caches per request; preserve clean-context writes and RNG ordering.
+  caches per request; preserve clean-context writes and RNG ordering. Cache
+  geometry belongs in `WanCausalState`, never `self.frame_seq_length`.
 
 Do not change scheduler arithmetic, autocast placement, step counts, offload,
 or model math as incidental cleanup. Keep legacy sampler exports as aliases;

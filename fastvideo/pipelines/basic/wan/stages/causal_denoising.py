@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
-import torch  # type: ignore
+from dataclasses import dataclass
+
+import torch
 
 from fastvideo.distributed import get_local_torch_device
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.forward_context import set_forward_context
 from fastvideo.logger import init_logger
 from fastvideo.models.utils import pred_noise_to_pred_video, pred_noise_to_x_bound
+from fastvideo.pipelines.basic.wan.stages.sampling import request_scheduler
 from fastvideo.pipelines.pipeline_batch_info import ForwardBatch
 from fastvideo.pipelines.stages.denoising import DenoisingStage
 from fastvideo.pipelines.stages.validators import StageValidators as V
@@ -42,14 +45,20 @@ def _get_transformer_attr(transformer, name: str, default):
     return default
 
 
+@dataclass
+class WanCausalState:
+    """One request's spatial cache layout and attention history."""
+    frame_seq_length: int
+    kv_cache: list[dict]
+    crossattn_cache: list[dict]
+    low_noise_kv_cache: list[dict] | None = None
+
+
 class WanCausalDenoisingBase(DenoisingStage):
     """Shared Wan cache layout; standard and DMD sampling remain separate algorithms."""
 
     def __init__(self, transformer, scheduler, transformer_2=None, vae=None) -> None:
         super().__init__(transformer, scheduler, transformer_2=transformer_2)
-        # KV and cross-attention cache state (initialized on first forward)
-        self.transformer = transformer
-        self.transformer_2 = transformer_2
         # Model-dependent constants (aligned with causal_inference.py assumptions)
         self.num_transformer_blocks = len(self.transformer.blocks)
         self.num_frames_per_block = self.transformer.config.arch_config.num_frames_per_block
@@ -58,7 +67,26 @@ class WanCausalDenoisingBase(DenoisingStage):
         self.local_attn_size = _get_transformer_attr(self.transformer, "local_attn_size", -1)
         self.sink_size = _get_transformer_attr(self.transformer, "sink_size", 0)
 
-    def _initialize_kv_cache(self, batch_size, dtype, device) -> list[dict]:
+    def forward(self, batch, fastvideo_args):
+        with request_scheduler(batch, self.scheduler) as scheduler:
+            return self.denoise(batch, fastvideo_args, scheduler)
+
+    def prepare_caches(self, batch, fastvideo_args, dtype, *, two_experts=False) -> WanCausalState:
+        latents = batch.latents
+        assert latents is not None, "latents must be provided"
+        patch_size = self.transformer.config.arch_config.patch_size
+        frame_seq_length = latents.shape[-1] * latents.shape[-2] // (patch_size[-1] * patch_size[-2])
+        cache_kwargs = dict(batch_size=latents.shape[0], dtype=dtype, device=latents.device)
+        return WanCausalState(
+            frame_seq_length=frame_seq_length,
+            kv_cache=self._initialize_kv_cache(frame_seq_length, **cache_kwargs),
+            low_noise_kv_cache=self._initialize_kv_cache(frame_seq_length, **cache_kwargs) if two_experts else None,
+            crossattn_cache=self._initialize_crossattn_cache(
+                max_text_len=fastvideo_args.pipeline_config.text_encoder_configs[0].arch_config.text_len,
+                **cache_kwargs),
+        )
+
+    def _initialize_kv_cache(self, frame_seq_length, batch_size, dtype, device) -> list[dict]:
         """
         Initialize a Per-GPU KV cache aligned with the Wan model assumptions.
         """
@@ -66,9 +94,9 @@ class WanCausalDenoisingBase(DenoisingStage):
         num_attention_heads = self.transformer.num_attention_heads
         attention_head_dim = self.transformer.attention_head_dim
         if self.local_attn_size != -1:
-            kv_cache_size = self.local_attn_size * self.frame_seq_length
+            kv_cache_size = self.local_attn_size * frame_seq_length
         else:
-            kv_cache_size = self.frame_seq_length * self.sliding_window_num_frames
+            kv_cache_size = frame_seq_length * self.sliding_window_num_frames
 
         for _ in range(self.num_transformer_blocks):
             kv_cache1.append({
@@ -132,30 +160,27 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
     Denoising stage for causal diffusion.
     """
 
-    def forward(
+    def denoise(
         self,
         batch: ForwardBatch,
         fastvideo_args: FastVideoArgs,
+        scheduler,
     ) -> ForwardBatch:
         target_dtype = torch.bfloat16
         autocast_enabled = (target_dtype != torch.float32) and not fastvideo_args.disable_autocast
 
-        latent_seq_length = batch.latents.shape[-1] * batch.latents.shape[-2]
-        patch_ratio = self.transformer.config.arch_config.patch_size[
-            -1] * self.transformer.config.arch_config.patch_size[-2]
-        self.frame_seq_length = latent_seq_length // patch_ratio
         # TODO(will): make this a parameter once we add i2v support
         independent_first_frame = self.transformer.independent_first_frame if hasattr(
             self.transformer, 'independent_first_frame') else False
         # Timesteps for DMD
         timesteps = torch.tensor(fastvideo_args.pipeline_config.dmd_denoising_steps, dtype=torch.long).cpu()
         if fastvideo_args.pipeline_config.warp_denoising_step:
-            scheduler_timesteps = torch.cat((self.scheduler.timesteps.cpu(), torch.tensor([0], dtype=torch.float32)))
+            scheduler_timesteps = torch.cat((scheduler.timesteps.cpu(), torch.tensor([0], dtype=torch.float32)))
             timesteps = scheduler_timesteps[1000 - timesteps]
         timesteps = timesteps.to(get_local_torch_device())
 
         if fastvideo_args.pipeline_config.dit_config.boundary_ratio is not None:
-            boundary_timestep = fastvideo_args.pipeline_config.dit_config.boundary_ratio * self.scheduler.num_train_timesteps
+            boundary_timestep = fastvideo_args.pipeline_config.dit_config.boundary_ratio * scheduler.num_train_timesteps
             high_noise_timesteps = timesteps[timesteps >= boundary_timestep]
         else:
             boundary_timestep = None
@@ -180,13 +205,8 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
         assert torch.isnan(prompt_embeds[0]).sum() == 0
 
         # Initialize or reset caches
-        kv_cache1 = self._initialize_kv_cache(batch_size=latents.shape[0], dtype=target_dtype, device=latents.device)
-        kv_cache2 = None
-        if boundary_timestep is not None:
-            # Initialize the low noise kv cache
-            kv_cache2 = self._initialize_kv_cache(batch_size=latents.shape[0],
-                                                  dtype=target_dtype,
-                                                  device=latents.device)
+        state = self.prepare_caches(batch, fastvideo_args, target_dtype, two_experts=boundary_timestep is not None)
+        kv_cache1, kv_cache2 = state.kv_cache, state.low_noise_kv_cache
 
         def _get_kv_cache(timestep: float) -> list[dict]:
             if boundary_timestep is not None:
@@ -197,11 +217,7 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
                     return kv_cache2
             return kv_cache1
 
-        crossattn_cache = self._initialize_crossattn_cache(
-            batch_size=latents.shape[0],
-            max_text_len=fastvideo_args.pipeline_config.text_encoder_configs[0].arch_config.text_len,
-            dtype=target_dtype,
-            device=latents.device)
+        crossattn_cache = state.crossattn_cache
 
         pos_start_base = 0
 
@@ -234,7 +250,7 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
                     t_zero,
                     kv_cache=kv_cache1,
                     crossattn_cache=crossattn_cache,
-                    current_start=(pos_start_base + start_index) * self.frame_seq_length,
+                    current_start=(pos_start_base + start_index) * state.frame_seq_length,
                     start_frame=start_index,
                     **image_kwargs,
                     **pos_cond_kwargs,
@@ -246,7 +262,7 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
                         t_zero,
                         kv_cache=kv_cache2,
                         crossattn_cache=crossattn_cache,
-                        current_start=(pos_start_base + start_index) * self.frame_seq_length,
+                        current_start=(pos_start_base + start_index) * state.frame_seq_length,
                         start_frame=start_index,
                         **image_kwargs,
                         **pos_cond_kwargs,
@@ -281,10 +297,10 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
 
                     # Attention metadata if needed
                     if (vsa_available and self.attn_backend == VideoSparseAttentionBackend):
-                        self.attn_metadata_builder_cls = self.attn_backend.get_builder_cls()
-                        if self.attn_metadata_builder_cls is not None:
-                            self.attn_metadata_builder = self.attn_metadata_builder_cls()
-                            attn_metadata = self.attn_metadata_builder.build(  # type: ignore
+                        attn_metadata_builder_cls = self.attn_backend.get_builder_cls()
+                        if attn_metadata_builder_cls is not None:
+                            attn_metadata_builder = attn_metadata_builder_cls()
+                            attn_metadata = attn_metadata_builder.build(  # type: ignore
                                 current_timestep=i,  # type: ignore
                                 raw_latent_shape=(current_num_frames, h, w),  # type: ignore
                                 patch_size=fastvideo_args.pipeline_config.dit_config.patch_size,  # type: ignore
@@ -312,7 +328,7 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
                             t_expanded_noise,
                             kv_cache=_get_kv_cache(t_cur),
                             crossattn_cache=crossattn_cache,
-                            current_start=(pos_start_base + start_index) * self.frame_seq_length,
+                            current_start=(pos_start_base + start_index) * state.frame_seq_length,
                             start_frame=start_index,
                             **image_kwargs,
                             **pos_cond_kwargs,
@@ -325,12 +341,12 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
                             noise_input_latent=noise_latents.flatten(0, 1),
                             timestep=t_expand,
                             boundary_timestep=torch.ones_like(t_expand) * boundary_timestep,
-                            scheduler=self.scheduler).unflatten(0, pred_noise_btchw.shape[:2])
+                            scheduler=scheduler).unflatten(0, pred_noise_btchw.shape[:2])
                     else:
                         pred_video_btchw = pred_noise_to_pred_video(pred_noise=pred_noise_btchw.flatten(0, 1),
                                                                     noise_input_latent=noise_latents.flatten(0, 1),
                                                                     timestep=t_expand,
-                                                                    scheduler=self.scheduler).unflatten(
+                                                                    scheduler=scheduler).unflatten(
                                                                         0, pred_noise_btchw.shape[:2])
 
                     if i < len(timesteps) - 1:
@@ -342,17 +358,17 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
                                                        batch.generator)).to(self.device)
                         noise_btchw = noise
                         if boundary_timestep is not None and i < len(high_noise_timesteps) - 1:
-                            noise_latents_btchw = self.scheduler.add_noise_high(
+                            noise_latents_btchw = scheduler.add_noise_high(
                                 pred_video_btchw.flatten(0, 1), noise_btchw.flatten(0, 1), next_timestep,
                                 torch.ones_like(next_timestep) * boundary_timestep).unflatten(
                                     0, pred_video_btchw.shape[:2])
                         elif boundary_timestep is not None and i == len(high_noise_timesteps) - 1:
                             noise_latents_btchw = pred_video_btchw
                         else:
-                            noise_latents_btchw = self.scheduler.add_noise(pred_video_btchw.flatten(0, 1),
-                                                                           noise_btchw.flatten(0, 1),
-                                                                           next_timestep).unflatten(
-                                                                               0, pred_video_btchw.shape[:2])
+                            noise_latents_btchw = scheduler.add_noise(pred_video_btchw.flatten(0, 1),
+                                                                      noise_btchw.flatten(0, 1),
+                                                                      next_timestep).unflatten(
+                                                                          0, pred_video_btchw.shape[:2])
                         current_latents = noise_latents_btchw.permute(0, 2, 1, 3, 4)
                     else:
                         current_latents = pred_video_btchw.permute(0, 2, 1, 3, 4)
@@ -382,7 +398,7 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
                             t_expanded_context,
                             kv_cache=kv_cache2,
                             crossattn_cache=crossattn_cache,
-                            current_start=(pos_start_base + start_index) * self.frame_seq_length,
+                            current_start=(pos_start_base + start_index) * state.frame_seq_length,
                             start_frame=start_index,
                             **image_kwargs,
                             **pos_cond_kwargs,
@@ -394,7 +410,7 @@ class CausalDMDDenosingStage(WanCausalDenoisingBase):
                         t_expanded_context,
                         kv_cache=kv_cache1,
                         crossattn_cache=crossattn_cache,
-                        current_start=(pos_start_base + start_index) * self.frame_seq_length,
+                        current_start=(pos_start_base + start_index) * state.frame_seq_length,
                         start_frame=start_index,
                         **image_kwargs,
                         **pos_cond_kwargs,
@@ -420,18 +436,14 @@ class CausalDenoisingStage(WanCausalDenoisingBase):
     can attend to prior clean frames.
     """
 
-    def forward(
+    def denoise(
         self,
         batch: ForwardBatch,
         fastvideo_args: FastVideoArgs,
+        scheduler,
     ) -> ForwardBatch:
         target_dtype = torch.bfloat16
         autocast_enabled = (target_dtype != torch.float32 and not fastvideo_args.disable_autocast)
-
-        latent_seq_length = (batch.latents.shape[-1] * batch.latents.shape[-2])
-        patch_ratio = (self.transformer.config.arch_config.patch_size[-1] *
-                       self.transformer.config.arch_config.patch_size[-2])
-        self.frame_seq_length = latent_seq_length // patch_ratio
 
         pos_cond_kwargs = self.prepare_extra_func_kwargs(
             self.transformer.forward,
@@ -449,17 +461,8 @@ class CausalDenoisingStage(WanCausalDenoisingBase):
         num_inference_steps = batch.num_inference_steps
 
         # Initialize caches
-        kv_cache = self._initialize_kv_cache(
-            batch_size=b,
-            dtype=target_dtype,
-            device=latents.device,
-        )
-        crossattn_cache = self._initialize_crossattn_cache(
-            batch_size=b,
-            max_text_len=(fastvideo_args.pipeline_config.text_encoder_configs[0].arch_config.text_len),
-            dtype=target_dtype,
-            device=latents.device,
-        )
+        state = self.prepare_caches(batch, fastvideo_args, target_dtype)
+        kv_cache, crossattn_cache = state.kv_cache, state.crossattn_cache
 
         # Determine block sizes
         if t % self.num_frames_per_block != 0:
@@ -488,11 +491,11 @@ class CausalDenoisingStage(WanCausalDenoisingBase):
 
                 # Reset scheduler per block so its multi-step
                 # history starts fresh.
-                self.scheduler.set_timesteps(
+                scheduler.set_timesteps(
                     num_inference_steps,
                     device=latents.device,
                 )
-                timesteps = self.scheduler.timesteps
+                timesteps = scheduler.timesteps
 
                 for i, t_cur in enumerate(timesteps):
                     latent_model_input = current_latents.to(target_dtype)
@@ -523,7 +526,7 @@ class CausalDenoisingStage(WanCausalDenoisingBase):
                             t_expanded,
                             kv_cache=kv_cache,
                             crossattn_cache=crossattn_cache,
-                            current_start=((pos_start_base + start_index) * self.frame_seq_length),
+                            current_start=((pos_start_base + start_index) * state.frame_seq_length),
                             start_frame=start_index,
                             **pos_cond_kwargs,
                         )
@@ -533,7 +536,7 @@ class CausalDenoisingStage(WanCausalDenoisingBase):
                     nf = current_num_frames
                     noise_pred_flat = (noise_pred.permute(0, 2, 1, 3, 4).flatten(0, 1))
                     latents_flat = (current_latents.permute(0, 2, 1, 3, 4).flatten(0, 1))
-                    updated_flat = self.scheduler.step(
+                    updated_flat = scheduler.step(
                         noise_pred_flat,
                         t_cur,
                         latents_flat,
@@ -578,7 +581,7 @@ class CausalDenoisingStage(WanCausalDenoisingBase):
                         t_context.unsqueeze(1),
                         kv_cache=kv_cache,
                         crossattn_cache=crossattn_cache,
-                        current_start=((pos_start_base + start_index) * self.frame_seq_length),
+                        current_start=((pos_start_base + start_index) * state.frame_seq_length),
                         start_frame=start_index,
                         **pos_cond_kwargs,
                     )

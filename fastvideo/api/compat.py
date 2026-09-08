@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import fields, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastvideo.api.overrides import apply_overrides, normalize_overrides
 from fastvideo.api.parser import config_to_dict, load_raw_config, parse_config
@@ -32,6 +32,9 @@ from fastvideo.pipelines.basic.ltx2.stage_overrides import (
     refine_stage_override_fields,
 )
 from fastvideo.utils import shallow_asdict
+
+if TYPE_CHECKING:
+    from fastvideo.pipelines.pipeline_batch_info import ForwardBatch
 
 _INPUT_FIELD_NAMES = {field.name for field in fields(InputConfig)}
 _SAMPLING_FIELD_NAMES = {field.name for field in fields(SamplingConfig)}
@@ -373,20 +376,57 @@ def request_to_sampling_param(
     *,
     model_path: str,
 ) -> SamplingParam:
+    updates = _validated_sampling_updates(request, model_path=model_path)
+    sampling_param = SamplingParam.from_pretrained(model_path)
+    for key, value in updates.items():
+        setattr(sampling_param, key, value)
+    sampling_param.__post_init__()
+    sampling_param.check_sampling_param()
+    return sampling_param
+
+
+def request_to_batch(request: GenerationRequest,
+                     *,
+                     model_path: str,
+                     updates: Mapping[str, Any] | None = None) -> ForwardBatch:
+    """Resolve a typed request directly to the executor's transport batch.
+
+    Wan opts into this path; other families retain the legacy adapter. Defaults
+    still come from the existing sampling schema and registered model preset.
+    No mutable SamplingParam or intermediate kwargs round trip is needed.
+    """
+    from fastvideo.pipelines.pipeline_batch_info import ForwardBatch
+
+    updates = explicit_request_updates(request) if updates is None else updates
+    values = SamplingParam.default_values(model_path)
+    values.update(_validated_sampling_updates(request, model_path=model_path, updates=updates))
+    values["prompt"] = deepcopy(request.prompt)
+    values["data_type"] = "video" if values["num_frames"] > 1 else "image"
+    if values["prompt_path"] and not values["prompt_path"].endswith(".txt"):
+        raise ValueError("prompt_path must be a txt file")
+    extra = {key: deepcopy(value) for key, value in updates.items() if key in REQUEST_BATCH_EXTRA_PASSTHROUGH_FIELDS}
+    return ForwardBatch(**values, extra=extra)
+
+
+def _validated_sampling_updates(request: GenerationRequest,
+                                *,
+                                model_path: str,
+                                updates: Mapping[str, Any] | None = None) -> dict[str, Any]:
     if request.plan is not None:
         raise NotImplementedError("GenerationRequest.plan is not wired into VideoGenerator yet")
 
-    sampling_param = SamplingParam.from_pretrained(model_path)
+    resolved: dict[str, Any] = {}
     if request.state is not None:
         _validate_continuation_state(request.state)
-        sampling_param.continuation_state = request.state
+        resolved["continuation_state"] = request.state
     if request.output.return_state:
-        sampling_param.return_continuation_state = True
-    updates = explicit_request_updates(request)
+        resolved["return_continuation_state"] = True
+    updates = explicit_request_updates(request) if updates is None else updates
+    supported = {f.name for f in fields(SamplingParam)}
 
     for key, value in updates.items():
-        if hasattr(sampling_param, key):
-            setattr(sampling_param, key, deepcopy(value))
+        if key in supported:
+            resolved[key] = deepcopy(value)
         elif key in _REQUEST_PIPELINE_OVERRIDE_FIELDS or key in REQUEST_BATCH_EXTRA_PASSTHROUGH_FIELDS:
             continue
         elif value == _SCHEMA_DEFAULT_UPDATES.get(key, _MISSING):
@@ -397,9 +437,7 @@ def request_to_sampling_param(
         else:
             raise ValueError(f"Request field {key!r} is not supported by sampling params for {model_path}")
 
-    sampling_param.__post_init__()
-    sampling_param.check_sampling_param()
-    return sampling_param
+    return resolved
 
 
 def expand_request_prompt_batch(request: GenerationRequest, ) -> list[GenerationRequest]:
@@ -478,9 +516,12 @@ def _apply_request_field(
     raw.setdefault("extensions", {})[key] = value
 
 
-def request_to_pipeline_overrides(request: GenerationRequest) -> dict[str, Any]:
+def request_to_pipeline_overrides(request: GenerationRequest,
+                                  *,
+                                  updates: Mapping[str, Any] | None = None) -> dict[str, Any]:
     overrides: dict[str, Any] = {}
-    for key, value in explicit_request_updates(request).items():
+    updates = explicit_request_updates(request) if updates is None else updates
+    for key, value in updates.items():
         if key in _REQUEST_PIPELINE_OVERRIDE_FIELDS:
             overrides[key] = deepcopy(value)
     return overrides

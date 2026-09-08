@@ -10,13 +10,13 @@ from fastvideo.pipelines.basic.wan.stages.denoising import WanDenoisingStage
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.logger import init_logger
 from fastvideo.pipelines.basic.wan.wan_v2v_pipeline import WanVideoToVideoPipeline
+from fastvideo.pipelines.basic.wan.stages.sampling import WanTimestepPreparationStage
 from fastvideo.pipelines.stages import (
     ConditioningStage,
     DecodingStage,
     InputValidationStage,
     LatentPreparationStage,
     TextEncodingStage,
-    TimestepPreparationStage,
     VideoVAEEncodingStage,
 )
 
@@ -49,7 +49,7 @@ class LucyEditPipeline(WanVideoToVideoPipeline):
 
         self.add_stage(
             stage_name="timestep_preparation_stage",
-            stage=TimestepPreparationStage(scheduler=self.get_module("scheduler")),
+            stage=WanTimestepPreparationStage(scheduler=self.get_module("scheduler")),
         )
 
         self.add_stage(

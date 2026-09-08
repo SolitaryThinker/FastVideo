@@ -7,6 +7,7 @@ import torch
 
 from fastvideo.distributed import get_local_torch_device
 from fastvideo.logger import init_logger
+from fastvideo.pipelines.basic.wan.stages.sampling import request_scheduler
 from fastvideo.pipelines.stages.denoising import DenoisingStage, DenoisingState
 from fastvideo.utils import masks_like
 
@@ -29,6 +30,10 @@ class WanDenoisingStage(DenoisingStage):
     All conditioning state is per request. The stage receives normalized
     first-frame latents; it does not load or execute a VAE.
     """
+
+    def forward(self, batch, fastvideo_args):
+        with request_scheduler(batch, self.scheduler):
+            return super().forward(batch, fastvideo_args)
 
     def prepare_denoising(self, batch, fastvideo_args, target_dtype) -> WanDenoisingState:
         config = fastvideo_args.pipeline_config

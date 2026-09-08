@@ -52,7 +52,8 @@ def test_wan_all_scheduler_steps_match_explicit_loop(monkeypatch, steps, cfg):
     torch.testing.assert_close(result.trajectory_latents, torch.stack(trajectory, dim=1), atol=0, rtol=0)
     torch.testing.assert_close(result.trajectory_timesteps, reference_scheduler.timesteps, atol=0, rtol=0)
     assert model.calls == (["cond", "uncond"] if cfg else ["cond"]) * steps
-    assert scheduler.step_index == steps
+    assert scheduler.step_index is None  # The stage retains a pristine template.
+    assert result.scheduler is None  # No scheduler history crosses the worker boundary.
 
 
 def test_wan_expert_boundary_invalidates_cfg_cache(monkeypatch):
@@ -103,10 +104,45 @@ def test_wan_conditioning_layout_and_first_frame(monkeypatch, kind, channels):
         assert vae.encode_calls == 0
 
 
-def test_wan_request_does_not_reuse_previous_cfg_delta(monkeypatch):
+@pytest.mark.parametrize("fail_between", [False, True])
+def test_wan_requests_isolate_schedule_cfg_and_failure_state(monkeypatch, fail_between):
+    from fastvideo.pipelines.basic.wan.stages.sampling import WanTimestepPreparationStage
+    from fastvideo.pipelines.stages import timestep_preparation
+    monkeypatch.setattr(timestep_preparation, "get_local_torch_device", lambda: torch.device("cpu"))
     model = RecordingDenoiser()
-    stage, _ = _stage(monkeypatch, model, TinyScheduler(), gate="0.0")
-    first = stage.forward(_batch(), _args()).latents.clone()
-    second = stage.forward(_batch(), _args()).latents.clone()
-    torch.testing.assert_close(first, second, atol=0, rtol=0)
-    assert model.calls == ["cond", "uncond", "cond", "cond", "cond"] * 2
+    scheduler = FlowUniPCMultistepScheduler(shift=3.0)
+    stage, _ = _stage(monkeypatch, model, scheduler, gate="0.0")
+    preparation = WanTimestepPreparationStage(scheduler)
+    schedules, outputs = [], []
+    for index, steps in enumerate((4, 3, 4)):
+        batch = _batch(steps=steps)
+        batch.timesteps = None
+        if index == 1:
+            batch.latents = batch.latents.repeat(1, 1, 1, 2, 1)
+            batch.height *= 2
+            batch.prompt_embeds = [torch.tensor([2.0])]
+        preparation.forward(batch, _args())
+        schedules.append(batch.scheduler)
+        if index == 1 and fail_between:
+            original_forward = model.forward
+            failed_calls = 0
+
+            def fail(*args, **kwargs):
+                nonlocal failed_calls
+                failed_calls += 1
+                if failed_calls == 3:
+                    raise RuntimeError("interrupted transformer")
+                return original_forward(*args, **kwargs)
+
+            model.forward = fail
+            with pytest.raises(RuntimeError, match="interrupted transformer"):
+                stage.forward(batch, _args())
+            model.forward = original_forward
+        else:
+            outputs.append(stage.forward(batch, _args()).latents.clone())
+        assert batch.scheduler is None
+    torch.testing.assert_close(outputs[0], outputs[-1], atol=0, rtol=0)
+    assert len({id(s) for s in schedules}) == 3
+    assert scheduler.step_index is None
+    assert schedules[0].step_index == schedules[2].step_index == 4
+    assert model.calls.count("uncond") == 3

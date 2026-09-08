@@ -46,7 +46,7 @@ class TimestepPreparationStage(PipelineStage):
         Returns:
             The batch with prepared timesteps.
         """
-        scheduler = self.scheduler
+        scheduler = batch.scheduler if batch.scheduler is not None else self.scheduler
         device = get_local_torch_device()
         num_inference_steps = batch.num_inference_steps
         timesteps = batch.timesteps

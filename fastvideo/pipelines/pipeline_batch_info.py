@@ -73,6 +73,9 @@ class ForwardBatch:
     data_type: str
 
     generator: torch.Generator | list[torch.Generator] | None = None
+    # Worker-local sampling history. Wan creates this during timestep preparation
+    # and releases it after denoising; reusable stages retain only a template.
+    scheduler: Any | None = field(default=None, repr=False)
 
     # Image inputs
     image_path: str | None = None

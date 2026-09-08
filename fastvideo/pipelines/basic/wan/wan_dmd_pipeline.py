@@ -14,8 +14,9 @@ from fastvideo.models.schedulers.scheduling_flow_match_euler_discrete import (Fl
 from fastvideo.pipelines import ComposedPipelineBase, LoRAPipeline
 
 # isort: off
+from fastvideo.pipelines.basic.wan.stages.sampling import WanTimestepPreparationStage
 from fastvideo.pipelines.stages import (ConditioningStage, DecodingStage, InputValidationStage, LatentPreparationStage,
-                                        TextEncodingStage, TimestepPreparationStage)
+                                        TextEncodingStage)
 # isort: on
 
 logger = init_logger(__name__)
@@ -46,7 +47,7 @@ class WanDMDPipeline(LoRAPipeline, ComposedPipelineBase):
         self.add_stage(stage_name="conditioning_stage", stage=ConditioningStage())
 
         self.add_stage(stage_name="timestep_preparation_stage",
-                       stage=TimestepPreparationStage(scheduler=self.get_module("scheduler")))
+                       stage=WanTimestepPreparationStage(scheduler=self.get_module("scheduler")))
 
         self.add_stage(stage_name="latent_preparation_stage",
                        stage=LatentPreparationStage(scheduler=self.get_module("scheduler"),
@@ -54,7 +55,7 @@ class WanDMDPipeline(LoRAPipeline, ComposedPipelineBase):
                                                     use_btchw_layout=True))
 
         # DMD needs the complete training-noise table, separate from the
-        # inference scheduler mutated by TimestepPreparationStage.
+        # inference scheduler mutated by WanTimestepPreparationStage.
         self.add_stage(stage_name="denoising_stage",
                        stage=DmdDenoisingStage(
                            transformer=self.get_module("transformer"),

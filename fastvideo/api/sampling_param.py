@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field, fields
+from dataclasses import MISSING, dataclass, field, fields
 from typing import TYPE_CHECKING, Any
 
 from fastvideo.logger import init_logger
@@ -232,6 +232,37 @@ class SamplingParam:
         *model_path*, letting the caller fall back to the legacy
         subclass lookup.
         """
+        defaults = cls._preset_defaults(model_path)
+        if defaults is None:
+            return None
+        sp = cls()
+        for key, value in defaults.items():
+            setattr(sp, key, value)
+        sp.__post_init__()
+        return sp
+
+    @classmethod
+    def default_values(cls, model_path: str) -> dict[str, Any]:
+        """Resolve defaults without constructing a legacy request object.
+
+        The typed Wan path and legacy SamplingParam share the same defaults;
+        mutable values are owned by the caller, never by the preset catalog.
+        """
+        values = {}
+        for f in fields(cls):
+            if f.default is not MISSING:
+                values[f.name] = copy.deepcopy(f.default)
+            elif f.default_factory is not MISSING:
+                values[f.name] = f.default_factory()
+        defaults = cls._preset_defaults(model_path)
+        if defaults is None:
+            logger.warning("Couldn't find a preset for %s. Using the default sampling param.", model_path)
+        else:
+            values.update(defaults)
+        return values
+
+    @classmethod
+    def _preset_defaults(cls, model_path: str) -> dict[str, Any] | None:
         from fastvideo.registry import get_preset_selection
 
         try:
@@ -244,13 +275,8 @@ class SamplingParam:
         from fastvideo.api.presets import get_preset
 
         preset = get_preset(preset_name, model_family)
-        sp = cls()
         valid_fields = {f.name for f in fields(cls)}
-        for key, value in preset.defaults.items():
-            if key in valid_fields:
-                setattr(sp, key, copy.deepcopy(value))
-        sp.__post_init__()
-        return sp
+        return {key: copy.deepcopy(value) for key, value in preset.defaults.items() if key in valid_fields}
 
     @staticmethod
     def add_cli_args(parser: Any) -> Any:

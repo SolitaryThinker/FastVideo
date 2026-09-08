@@ -81,22 +81,6 @@ def test_legacy_and_aggregate_vae_config_exports_are_the_canonical_objects():
     assert aggregate.WanVAEConfig is vae_config.WanVAEConfig
 
 
-@pytest.mark.parametrize("config_name, load_encoder", [
-    ("WanT2V480PConfig", False),
-    ("WanI2V480PConfig", True),
-    ("LucyEditDevConfig", True),
-])
-def test_wan_pipeline_configs_use_canonical_vae_types(config_name, load_encoder):
-    pipeline = importlib.import_module("fastvideo.configs.pipelines.wan")
-    assert pipeline.WanVAEConfig is vae_config.WanVAEConfig
-    assert pipeline.WanVAEArchConfig is vae_config.WanVAEArchConfig
-    value = getattr(pipeline, config_name)().vae_config
-    assert type(value) is vae_config.WanVAEConfig
-    assert type(value.arch_config) is vae_config.WanVAEArchConfig
-    assert value.load_encoder is load_encoder
-    assert value.load_decoder
-
-
 def test_legacy_vae_cache_context_is_shared_and_restored_after_errors():
     legacy = importlib.import_module("fastvideo.models.vaes.wanvae")
     contexts = (vae.is_first_frame, vae.feat_cache, vae.feat_idx, vae.first_chunk, vae.use_light_vae)
@@ -113,27 +97,6 @@ def test_legacy_vae_cache_context_is_shared_and_restored_after_errors():
         assert vae.feat_cache.get() is cache
         assert tuple(context.get() for context in contexts) == (True, cache, 3, True, True)
     assert tuple(context.get() for context in contexts) == original
-
-
-@pytest.mark.parametrize("module_name", [
-    "fastvideo.models.dits.causal_wanvideo",
-    "fastvideo.models.dits.dreamx_world",
-    "fastvideo.models.dits.matrixgame2.model",
-    "fastvideo.models.dits.matrixgame2.causal_model",
-    "fastvideo.models.dits.matrixgame3.model",
-    "fastvideo.models.dits.lingbotworld.model",
-    "fastvideo.configs.models.dits.dreamx_world",
-    "fastvideo.configs.models.dits.matrixgame2",
-    "fastvideo.configs.models.dits.matrixgame3",
-    "fastvideo.configs.pipelines.wan",
-    "fastvideo.configs.pipelines.dreamx_world",
-    "fastvideo.configs.pipelines.longcat",
-    "fastvideo.configs.pipelines.lingbot_video",
-    "fastvideo.configs.pipelines.turbodiffusion",
-    "fastvideo.configs.pipelines.lingbotworld2",
-])
-def test_downstream_wan_consumers_import(module_name):
-    importlib.import_module(module_name)
 
 
 @pytest.mark.parametrize("module_name, architecture", [
@@ -156,19 +119,7 @@ def test_registry_discovers_and_loads_the_canonical_wan_class(module_name, archi
     assert resolved_architecture == architecture
 
 
-@pytest.mark.parametrize("first_module", [
-    "fastvideo.models.wan.config",
-    "fastvideo.models.wan.transformer",
-    "fastvideo.models.wan.causal_transformer",
-    "fastvideo.models.dits.causal_wanvideo",
-    "fastvideo.configs.models.dits.wanvideo",
-    "fastvideo.models.dits.wanvideo",
-    "fastvideo.models.wan.vae_config",
-    "fastvideo.models.wan.vae",
-    "fastvideo.configs.models.vaes.wanvae",
-    "fastvideo.models.vaes.wanvae",
-])
-def test_import_order_and_config_transport_in_fresh_process(first_module):
+def test_cold_import_and_config_transport_in_fresh_process():
     original = config.WanVideoConfig()
     # Protocol 0 GLOBAL references reproduce the old qualified names without
     # changing __module__ or keeping a second config implementation alive.
@@ -191,7 +142,7 @@ import pickle
 import sys
 import torch
 
-importlib.import_module(sys.argv[1])
+importlib.import_module("fastvideo")
 from fastvideo.models.wan.config import WanVideoArchConfig, WanVideoConfig, is_blocks
 from fastvideo.configs.models.dits import WanVideoConfig as AggregateConfig
 from fastvideo.models.wan.transformer import WanTransformer3DModel
@@ -231,7 +182,7 @@ for payload in vae_payloads:
         assert torch.equal(getattr(pickle.loads(pickle.dumps(value)), field), getattr(value, field))
 """
     result = subprocess.run(
-        [sys.executable, "-c", script, first_module],
+        [sys.executable, "-c", script],
         input=pickle.dumps(((serialized, legacy_serialized), (vae_serialized, legacy_vae_serialized))),
         capture_output=True,
         timeout=120,

@@ -7,6 +7,7 @@ from fastvideo.distributed import get_local_torch_device
 from fastvideo.fastvideo_args import FastVideoArgs
 from fastvideo.forward_context import set_forward_context
 from fastvideo.models.utils import pred_noise_to_pred_video
+from fastvideo.pipelines.basic.wan.stages.sampling import request_scheduler
 from fastvideo.pipelines.pipeline_batch_info import ForwardBatch
 from fastvideo.pipelines.stages.denoising import DenoisingStage
 from fastvideo.utils import dict_to_3d_list
@@ -23,13 +24,15 @@ class DmdDenoisingStage(DenoisingStage):
     Denoising stage for DMD.
     """
 
-    def __init__(self, transformer, scheduler) -> None:
-        super().__init__(transformer, scheduler)
+    def forward(self, batch, fastvideo_args):
+        with request_scheduler(batch, self.scheduler, training_noise=True) as scheduler:
+            return self.denoise(batch, fastvideo_args, scheduler)
 
-    def forward(
+    def denoise(
         self,
         batch: ForwardBatch,
         fastvideo_args: FastVideoArgs,
+        scheduler,
     ) -> ForwardBatch:
         """
         Run the denoising loop.
@@ -54,7 +57,7 @@ class DmdDenoisingStage(DenoisingStage):
         if timesteps is None:
             raise ValueError("Timesteps must be provided")
         num_inference_steps = batch.num_inference_steps
-        num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
+        num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
 
         # Prepare image latents and embeddings for I2V generation
         image_embeds = batch.image_embeds
@@ -115,12 +118,12 @@ class DmdDenoisingStage(DenoisingStage):
                 # Predict noise residual
                 with torch.autocast(device_type="cuda", dtype=target_dtype, enabled=autocast_enabled):
                     if (vsa_available and self.attn_backend == VideoSparseAttentionBackend):
-                        self.attn_metadata_builder_cls = self.attn_backend.get_builder_cls()
+                        attn_metadata_builder_cls = self.attn_backend.get_builder_cls()
 
-                        if self.attn_metadata_builder_cls is not None:
-                            self.attn_metadata_builder = self.attn_metadata_builder_cls()
+                        if attn_metadata_builder_cls is not None:
+                            attn_metadata_builder = attn_metadata_builder_cls()
                             # TODO(will): clean this up
-                            attn_metadata = self.attn_metadata_builder.build(  # type: ignore
+                            attn_metadata = attn_metadata_builder.build(  # type: ignore
                                 current_timestep=i,  # type: ignore
                                 raw_latent_shape=batch.raw_latent_shape[2:5],  # type: ignore
                                 patch_size=fastvideo_args.pipeline_config.  # type: ignore
@@ -154,21 +157,21 @@ class DmdDenoisingStage(DenoisingStage):
                     pred_video = pred_noise_to_pred_video(pred_noise=pred_noise.flatten(0, 1),
                                                           noise_input_latent=noise_latents.flatten(0, 1),
                                                           timestep=t_expand,
-                                                          scheduler=self.scheduler).unflatten(0, pred_noise.shape[:2])
+                                                          scheduler=scheduler).unflatten(0, pred_noise.shape[:2])
 
                     if i < len(timesteps) - 1:
                         next_timestep = timesteps[i + 1] * torch.ones([1], dtype=torch.long, device=pred_video.device)
                         noise = torch.randn(video_raw_latent_shape,
                                             dtype=pred_video.dtype,
                                             generator=batch.generator[0]).to(self.device)
-                        latents = self.scheduler.add_noise(pred_video.flatten(0, 1), noise.flatten(0, 1),
-                                                           next_timestep).unflatten(0, pred_video.shape[:2])
+                        latents = scheduler.add_noise(pred_video.flatten(0, 1), noise.flatten(0, 1),
+                                                      next_timestep).unflatten(0, pred_video.shape[:2])
                     else:
                         latents = pred_video
 
                     # Update progress bar
                     if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and
-                                                   (i + 1) % self.scheduler.order == 0 and progress_bar is not None):
+                                                   (i + 1) % scheduler.order == 0 and progress_bar is not None):
                         progress_bar.update()
 
         # Gather results if using sequence parallelism

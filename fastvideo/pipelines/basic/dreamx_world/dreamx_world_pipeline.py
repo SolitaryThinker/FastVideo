@@ -10,13 +10,13 @@ from fastvideo.models.schedulers.scheduling_flow_match_euler_discrete import Flo
 from fastvideo.pipelines import ComposedPipelineBase, LoRAPipeline
 from fastvideo.configs.pipelines.dreamx_world import DreamXWorld5BCamPipelineConfig
 from fastvideo.pipelines.basic.dreamx_world.stages import DreamXWorldCameraConditioningStage
+from fastvideo.pipelines.basic.wan.stages.sampling import WanTimestepPreparationStage
 from fastvideo.pipelines.stages import (
     ConditioningStage,
     DecodingStage,
     InputValidationStage,
     LatentPreparationStage,
     TextEncodingStage,
-    TimestepPreparationStage,
 )
 
 logger = init_logger(__name__)
@@ -47,7 +47,7 @@ class DreamXWorldPipeline(LoRAPipeline, ComposedPipelineBase):
 
         self.add_stage(
             stage_name="timestep_preparation_stage",
-            stage=TimestepPreparationStage(scheduler=self.get_module("scheduler")),
+            stage=WanTimestepPreparationStage(scheduler=self.get_module("scheduler")),
         )
 
         self.add_stage(

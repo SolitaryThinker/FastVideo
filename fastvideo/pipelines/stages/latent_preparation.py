@@ -91,6 +91,7 @@ class LatentPreparationStage(PipelineStage):
         dtype = batch.prompt_embeds[0].dtype
         device = get_local_torch_device()
         generator = batch.generator
+        scheduler = batch.scheduler if batch.scheduler is not None else self.scheduler
         latents = batch.latents
         num_frames = latent_num_frames if latent_num_frames is not None else batch.num_frames
         height = batch.height
@@ -134,16 +135,16 @@ class LatentPreparationStage(PipelineStage):
                 device=device,
                 dtype=dtype,
             )
-            if hasattr(self.scheduler, "init_noise_sigma"):
-                latents = latents * self.scheduler.init_noise_sigma
+            if hasattr(scheduler, "init_noise_sigma"):
+                latents = latents * scheduler.init_noise_sigma
         else:
             # Pre-initialized latents:
             # - For LongCat refine (refine_from or stage1_video present), we should not re-scale by init_noise_sigma.
             # - For other models, keep the original behavior.
             latents = latents.to(device)
             is_longcat_refine = (batch.refine_from is not None) or (batch.stage1_video is not None)
-            if (not is_longcat_refine) and hasattr(self.scheduler, "init_noise_sigma"):
-                latents = latents * self.scheduler.init_noise_sigma
+            if (not is_longcat_refine) and hasattr(scheduler, "init_noise_sigma"):
+                latents = latents * scheduler.init_noise_sigma
 
         # Update batch with prepared latents
         batch.latents = latents

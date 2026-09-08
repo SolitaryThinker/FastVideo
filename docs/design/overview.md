@@ -14,7 +14,8 @@ FastVideo maps a Diffusers-style repo into a pipeline like this:
 - `fastvideo/models/wan/`: Wan's transformers, VAE, configs, and variant definitions
   together; the old Wan component/config modules remain compatibility imports.
 - `fastvideo/configs/pipelines/*`: pipeline wiring (component classes + names).
-- `fastvideo/api/sampling_param.py`: runtime sampling parameters.
+- `fastvideo/api/schema.py`: typed generator and generation-request settings.
+- `fastvideo/api/sampling_param.py`: legacy sampling compatibility and defaults.
 - `fastvideo/pipelines/basic/*`: end-to-end pipelines.
 - `fastvideo/pipelines/stages/*`: reusable pipeline stages.
 - `fastvideo/models/loader/*`: component loaders for Diffusers-style repos.
@@ -24,23 +25,19 @@ Flow:
 `model_index.json` -> component loaders -> model modules -> pipeline stages ->
 sampling params.
 
-Minimal usage (from `examples/inference/basic/basic.py`):
+Minimal typed usage:
 
 ```python
 from fastvideo import VideoGenerator
-from fastvideo.api.sampling_param import SamplingParam
 
 model_id = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"  # or official_weights/<model_name>/
 generator = VideoGenerator.from_pretrained(model_id, num_gpus=1)
 
-sampling = SamplingParam.from_pretrained(model_id)
-sampling.num_frames = 45
-video = generator.generate_video(
-    "A vibrant city street at sunset.",
-    sampling_param=sampling,
-    output_path="video_samples",
-    save_video=True,
-)
+video = generator.generate({
+    "prompt": "A vibrant city street at sunset.",
+    "sampling": {"num_frames": 45},
+    "output": {"output_path": "video_samples", "save_video": True},
+})
 ```
 
 ## Configuration system
@@ -76,6 +73,34 @@ their existing resolution behavior, including first-match detector ordering.
 
 `FastVideoArgs` (in `fastvideo/fastvideo_args.py`) provides runtime settings and
 is passed into pipeline construction and stages.
+
+### Wan request execution
+
+Wan projects explicitly supplied request fields once, merges the registered
+preset defaults, and constructs `ForwardBatch` directly. It does not construct
+or update a `SamplingParam` per request. The deprecated `generate_video()` API
+normalizes its inputs at the boundary and uses the same execution path. Other
+families retain their legacy adapters; the executor protocol is unchanged.
+
+| Owner | Lifetime |
+|---|---|
+| Family definitions, component configs, sampling presets | Model defaults; not mutated by requests |
+| Pipeline stages | Reusable components, engine configuration, scheduler templates |
+| `ForwardBatch` | One request's resolved settings and intermediate tensors |
+| `WanDenoisingState` / `WanCausalState` | One denoising call's conditioning, cache geometry, and attention history |
+
+`WanTimestepPreparationStage` copies the scheduler template before preparing
+timesteps. Latent preparation and dense sampling use that same request-owned
+schedule. UniPC history never mutates the template. Causal samplers allocate
+caches per call and standard causal sampling still resets UniPC per block.
+Dense DMD uses its separate full training-noise table, not the prepared inference
+schedule. Scheduler history is released after sampling, including on failure,
+instead of being transported back from the worker.
+
+Prompt-file batches get independent transport batches, and a failed prompt
+retains the legacy continue-to-next-prompt behavior. Request isolation does not
+make simultaneous calls on one generator supported: model/offload state and
+executor scheduling are still shared.
 
 ## Weights and Diffusers format
 

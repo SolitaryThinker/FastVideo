@@ -64,6 +64,16 @@ config isolation, and legacy serialized-config compatibility. These require no
 weights or Hub access; the current package import still needs its prepared
 runtime environment.
 
+`tests/api/test_wan_requests.py` covers direct request/default resolution,
+typed and legacy entrypoints, prompt batching, and recovery after failure.
+Stage contracts exercise changed-shape requests and scheduler/cache isolation.
+Legacy export assertions and one cold-process serialized-config test live in
+`tests/loader/test_wan_family_imports.py`; repeating an eager package import
+with many different first-submodule names adds cost without distinct coverage.
+Lucy defaults and channel-layout checks are consolidated with the Wan catalog.
+Independent local parity, training-dtype, distributed, and quality tests remain
+separate because the tiny orchestration tests do not cover their boundaries.
+
 ```bash
 bash scripts/validate_wan.sh vae           # contracts, then the VAE golden
 bash scripts/validate_wan.sh dense parity  # contracts, goldens, Diffusers parity

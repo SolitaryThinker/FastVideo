@@ -105,9 +105,11 @@ class DenoisingStage(PipelineStage):
                 pipeline.add_module("transformer", self.transformer)
             fastvideo_args.model_loaded["transformer"] = True
 
+        scheduler = batch.scheduler if batch.scheduler is not None else self.scheduler
+
         # Prepare extra step kwargs for scheduler
         extra_step_kwargs = self.prepare_extra_func_kwargs(
-            self.scheduler.step,
+            scheduler.step,
             {
                 "generator": batch.generator,
                 "eta": batch.eta
@@ -156,7 +158,7 @@ class DenoisingStage(PipelineStage):
         if timesteps is None:
             raise ValueError("Timesteps must be provided")
         num_inference_steps = batch.num_inference_steps
-        num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
+        num_warmup_steps = len(timesteps) - num_inference_steps * scheduler.order
 
         # Prepare image latents and embeddings for I2V generation
         image_embeds = batch.image_embeds
@@ -360,17 +362,17 @@ class DenoisingStage(PipelineStage):
                     },
                 )
 
-                latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                latent_model_input = scheduler.scale_model_input(latent_model_input, t)
 
                 # Predict noise residual
                 with torch.autocast(device_type="cuda", dtype=target_dtype, enabled=autocast_enabled):
                     if (vsa_available and self.attn_backend == VideoSparseAttentionBackend):
-                        self.attn_metadata_builder_cls = self.attn_backend.get_builder_cls()
+                        attn_metadata_builder_cls = self.attn_backend.get_builder_cls()
 
-                        if self.attn_metadata_builder_cls is not None:
-                            self.attn_metadata_builder = self.attn_metadata_builder_cls()
+                        if attn_metadata_builder_cls is not None:
+                            attn_metadata_builder = attn_metadata_builder_cls()
                             # TODO(will): clean this up
-                            attn_metadata = self.attn_metadata_builder.build(  # type: ignore
+                            attn_metadata = attn_metadata_builder.build(  # type: ignore
                                 current_timestep=i,  # type: ignore
                                 raw_latent_shape=batch.raw_latent_shape[2:5],  # type: ignore
                                 patch_size=fastvideo_args.pipeline_config.  # type: ignore
@@ -382,9 +384,9 @@ class DenoisingStage(PipelineStage):
                         else:
                             attn_metadata = None
                     elif (vmoba_attn_available and self.attn_backend == VMOBAAttentionBackend):
-                        self.attn_metadata_builder_cls = self.attn_backend.get_builder_cls()
-                        if self.attn_metadata_builder_cls is not None:
-                            self.attn_metadata_builder = self.attn_metadata_builder_cls()
+                        attn_metadata_builder_cls = self.attn_backend.get_builder_cls()
+                        if attn_metadata_builder_cls is not None:
+                            attn_metadata_builder = attn_metadata_builder_cls()
                             # Prepare V-MoBA parameters from config
                             moba_params = fastvideo_args.moba_config.copy()
                             moba_params.update({
@@ -393,7 +395,7 @@ class DenoisingStage(PipelineStage):
                                 "patch_size": fastvideo_args.pipeline_config.dit_config.patch_size,
                                 "device": get_local_torch_device(),
                             })
-                            attn_metadata = self.attn_metadata_builder.build(**moba_params)
+                            attn_metadata = attn_metadata_builder.build(**moba_params)
                             assert attn_metadata is not None, "attn_metadata cannot be None"
                         else:
                             attn_metadata = None
@@ -492,10 +494,10 @@ class DenoisingStage(PipelineStage):
                             )
                 if scheduler_fp32:
                     # Diffusers-style: fp32 Euler update outside autocast avoids BF16 drift.
-                    latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+                    latents = scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
                 else:
                     with torch.autocast(device_type="cuda", dtype=target_dtype, enabled=autocast_enabled):
-                        latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+                        latents = scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
                 latents = self.finish_step(latents, state)
 
                 # save trajectory latents if needed
@@ -505,7 +507,7 @@ class DenoisingStage(PipelineStage):
 
                 # Update progress bar
                 if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and
-                                               (i + 1) % self.scheduler.order == 0 and progress_bar is not None):
+                                               (i + 1) % scheduler.order == 0 and progress_bar is not None):
                     progress_bar.update()
 
         # CFG gating telemetry — log once on rank 0 after the loop ends.  When

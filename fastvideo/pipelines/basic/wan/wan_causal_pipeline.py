@@ -12,13 +12,13 @@ from fastvideo.models.schedulers.scheduling_flow_unipc_multistep import (FlowUni
 from fastvideo.pipelines import ComposedPipelineBase, LoRAPipeline
 
 # isort: off
+from fastvideo.pipelines.basic.wan.stages.sampling import WanTimestepPreparationStage
 from fastvideo.pipelines.stages import (
     ConditioningStage,
     DecodingStage,
     InputValidationStage,
     LatentPreparationStage,
     TextEncodingStage,
-    TimestepPreparationStage,
 )
 # isort: on
 
@@ -66,7 +66,7 @@ class WanCausalPipeline(LoRAPipeline, ComposedPipelineBase):
 
         self.add_stage(
             stage_name="timestep_preparation_stage",
-            stage=TimestepPreparationStage(scheduler=self.get_module("scheduler"), ),
+            stage=WanTimestepPreparationStage(scheduler=self.get_module("scheduler"), ),
         )
 
         self.add_stage(

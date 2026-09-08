@@ -47,6 +47,12 @@ def test_init_device_applies_offload_policy_after_binding_worker_device(monkeypa
     worker = Worker(args, local_rank=3, rank=3, distributed_init_method="env://")
 
     monkeypatch.setenv("LOCAL_RANK", "0")
+    # init_device writes/removes these too. Restore all of them so a later
+    # profiler or distributed test does not inherit this fake worker's rank.
+    monkeypatch.setenv("RANK", "0")
+    monkeypatch.setenv("WORLD_SIZE", "1")
+    monkeypatch.setenv("TORCH_NCCL_AVOID_RECORD_STREAMS", "0")
+    monkeypatch.setenv("NCCL_ASYNC_ERROR_HANDLING", "1")
     monkeypatch.setattr("fastvideo.platforms.current_platform.is_cuda_alike", lambda: True)
     monkeypatch.setattr("fastvideo.platforms.current_platform.is_cuda", lambda: False)
     monkeypatch.setattr(torch.cuda, "set_device", lambda device: events.append(("set_device", device.index)))
